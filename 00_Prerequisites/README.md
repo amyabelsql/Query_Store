@@ -1,4 +1,16 @@
-# What Is Query Store?
+# 00 - Prerequisites
+
+**Target platform:** SQL Server 2022 (16.x). Notes throughout call out where behavior differs on older versions or Azure SQL Database.
+
+## What you need
+
+| Requirement | Notes |
+|---|---|
+| SQL Server 2022 (Developer or Evaluation edition) | [Download](https://www.microsoft.com/sql-server/sql-server-downloads) |
+| SQL Server Management Studio (latest) | [Download](https://aka.ms/ssms) — required for the Query Store GUI reports |
+| AdventureWorks2022 sample database | [Install instructions](https://learn.microsoft.com/sql/samples/adventureworks-install-configure) — restore the `AdventureWorks2022.bak` file from the [sql-server-samples releases page](https://github.com/microsoft/sql-server-samples/releases/tag/adventureworks) |
+
+## What is Query Store?
 
 Query Store is a built-in SQL Server feature that continuously captures a history of queries, their execution plans, and runtime statistics and retains it across restarts and failovers. Microsoft describes it as a "flight data recorder" for your database.
 
@@ -39,7 +51,7 @@ Cursors, queries inside stored procedures, and natively compiled queries are cap
 - Identify queries that are waiting on locks, memory, or I/O, and which queries are causing it.
 - Detect ad hoc/non-parameterized query patterns that are bloating the plan cache.
 
-Next: [Enabling and configuring Query Store](02-enabling-and-configuring.md)
+Next: [01_Setup](../01_Setup/)
 
 ## Sources
 

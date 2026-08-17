@@ -1,6 +1,6 @@
-# Catalog Views and Stored Procedures
+# 03 - Explore Catalog Views
 
-Everything Query Store collects is queryable through catalog views in the user database — no external tooling required.
+Everything Query Store collects is queryable through catalog views in the user database — no external tooling required. Run [explore-catalog-views.sql](explore-catalog-views.sql) after generating the workload.
 
 ## Core catalog views
 
@@ -63,9 +63,7 @@ Key columns in `sys.query_store_runtime_stats` you'll use constantly: `avg_durat
 - SQL Server 2016–2019: requires `VIEW DATABASE STATE`.
 - SQL Server 2022+: requires `VIEW DATABASE PERFORMANCE STATE` (or a broader permission like `VIEW DATABASE STATE`).
 
-Hands-on: [scripts/03-explore-catalog-views.sql](../scripts/03-explore-catalog-views.sql)
-
-Next: [Troubleshooting scenarios](04-troubleshooting-scenarios.md)
+Next: [04_Find_And_Fix_Regressions](../04_Find_And_Fix_Regressions/)
 
 ## Sources
 

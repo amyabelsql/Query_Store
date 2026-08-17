@@ -1,11 +1,12 @@
 /*
-    05 - Create and find a regressed query
+    02 - Create and find a regressed query
     Deliberately regresses dbo.QS_ProductSales by dropping its supporting
     index, then shows how to spot the regression through the runtime
     stats interval history -- the same signal behind the SSMS
     "Regressed Queries" report.
 
-    Run 00-setup-sample-db.sql and 02-generate-sample-workload.sql first.
+    Run 01_Setup/01-setup-sample-db.sql and
+    02_Generate_Workload/generate-workload.sql first.
 */
 
 USE [AdventureWorks2022];

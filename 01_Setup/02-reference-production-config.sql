@@ -1,8 +1,12 @@
 /*
-    01 - Enable and configure Query Store (reference walkthrough)
-    Companion to docs/02-enabling-and-configuring.md. These are the
-    production-realistic commands; 00-setup-sample-db.sql uses tighter
-    intervals purely to make the labs fast to demo.
+    02 - Reference: recommended production configuration
+
+    READ ONLY — do not run this against the workshop database. It sets
+    QUERY_CAPTURE_MODE = AUTO and the full-length intervals, which would
+    overwrite the fast settings 01-setup-sample-db.sql just applied and
+    stall the rest of the labs. This file exists so you can see and copy
+    the best-practice settings for a real database. See README.md in
+    this folder for the full explanation.
 */
 
 USE [AdventureWorks2022];

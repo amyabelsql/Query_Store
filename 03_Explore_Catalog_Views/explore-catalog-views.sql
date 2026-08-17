@@ -1,7 +1,7 @@
 /*
     03 - Explore the catalog views
-    Companion to docs/03-catalog-views-and-dmvs.md. Run after
-    02-generate-sample-workload.sql.
+    Companion to README.md in this folder. Run after
+    02_Generate_Workload/generate-workload.sql.
 */
 
 USE [AdventureWorks2022];

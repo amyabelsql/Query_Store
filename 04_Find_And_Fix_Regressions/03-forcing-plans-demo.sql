@@ -1,11 +1,11 @@
 /*
-    06 - Force and unforce a plan
-    Companion to docs/04-troubleshooting-scenarios.md. Fixes the
-    regression created in 05-find-regressed-queries.sql by forcing the
-    faster (index seek) plan back on, then demonstrates what happens
-    when a forced plan can no longer be used.
+    03 - Force and unforce a plan
+    Companion to README.md in this folder. Fixes the regression created
+    in 02-find-regressed-queries.sql by forcing the faster (index seek)
+    plan back on, then demonstrates what happens when a forced plan can
+    no longer be used.
 
-    Run 05-find-regressed-queries.sql first.
+    Run 02-find-regressed-queries.sql first.
 */
 
 USE [AdventureWorks2022];

@@ -1,8 +1,8 @@
 /*
-    08 - Maintenance and cleanup
-    Companion to docs/02-enabling-and-configuring.md and
-    docs/06-best-practices-cheatsheet.md. Also resets the workshop-only
-    settings from 00-setup-sample-db.sql back to production defaults.
+    01 - Maintenance and cleanup
+    Companion to README.md in this folder. Also resets the workshop-only
+    settings from 01_Setup/01-setup-sample-db.sql back to production
+    defaults.
 */
 
 USE [AdventureWorks2022];

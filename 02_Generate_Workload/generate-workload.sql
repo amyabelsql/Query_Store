@@ -4,7 +4,7 @@
     Store has real data for the rest of the labs. Also runs a batch of
     non-parameterized ad hoc queries to demonstrate query-text bloat.
 
-    Run 00-setup-sample-db.sql first.
+    Run 01_Setup/01-setup-sample-db.sql first.
 */
 
 USE [AdventureWorks2022];
@@ -65,7 +65,7 @@ GO
 -- 3. Ad hoc / non-parameterized workload.
 --    Each iteration is a different literal, so SQL Server compiles a
 --    new plan almost every time. This is the pattern that bloats Query
---    Store and the plan cache -- see docs/04-troubleshooting-scenarios.md.
+--    Store and the plan cache -- see 04_Find_And_Fix_Regressions/README.md.
 -- ---------------------------------------------------------------------------
 DECLARE @sql NVARCHAR(500), @j INT = 1;
 WHILE @j <= 30

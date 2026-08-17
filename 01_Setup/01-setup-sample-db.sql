@@ -1,13 +1,18 @@
-[ew3]/*
-    00 - Setup
+/*
+    01 - Setup
     Resets Query Store on AdventureWorks2022 and configures it for the
     workshop. Safe to re-run at any point to get back to a clean slate.
 
     NOTE: INTERVAL_LENGTH_MINUTES and DATA_FLUSH_INTERVAL_SECONDS are set
     much lower here than Microsoft's production defaults (60 min / 900 sec)
     purely so the labs produce visible results in minutes instead of hours.
-    See docs/02-enabling-and-configuring.md for real-world defaults, and
-    scripts/08-maintenance-cleanup.sql resets these at the end.
+    QUERY_CAPTURE_MODE = ALL is also workshop-only, so the single-shot ad
+    hoc queries in 02_Generate_Workload are guaranteed to be captured —
+    the best-practice AUTO mode (used in 02-reference-production-config.sql)
+    would likely filter those out as too low-value to keep.
+    See README.md in this folder for real-world defaults, and
+    06_Maintenance_And_Best_Practices/maintenance-cleanup.sql resets
+    these at the end.
 */
 
 USE master;
@@ -33,11 +38,11 @@ ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE
 (
     OPERATION_MODE           = READ_WRITE,
     CLEANUP_POLICY           = (STALE_QUERY_THRESHOLD_DAYS = 90),
-    DATA_FLUSH_INTERVAL_SECONDS = 60,     -- workshop only; production default is 900
+    DATA_FLUSH_INTERVAL_SECONDS = 60,      -- workshop only; production default is 900
     MAX_STORAGE_SIZE_MB      = 1024,
-    INTERVAL_LENGTH_MINUTES  = 1,         -- workshop only; production default is 60
+    INTERVAL_LENGTH_MINUTES  = 1,          -- workshop only; production default is 60
     SIZE_BASED_CLEANUP_MODE  = AUTO,
-    QUERY_CAPTURE_MODE       = ALL,       -- workshop only, so nothing gets filtered; use AUTO in production
+    QUERY_CAPTURE_MODE       = ALL,        -- workshop only, so nothing gets filtered; use AUTO in production
     MAX_PLANS_PER_QUERY      = 200,
     WAIT_STATS_CAPTURE_MODE  = ON
 );

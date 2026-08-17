@@ -1,4 +1,11 @@
-# Enabling and Configuring Query Store
+# 01 - Setup
+
+Run [01-setup-sample-db.sql](01-setup-sample-db.sql) to enable Query
+Store on `AdventureWorks2022` with fast, workshop-friendly intervals.
+[02-reference-production-config.sql](02-reference-production-config.sql)
+is **read only** — it shows the recommended production configuration
+for comparison; running it against the workshop database would undo
+the fast settings and stall the rest of the labs.
 
 ## Enable it
 
@@ -84,11 +91,9 @@ SELECT actual_state_desc, desired_state_desc, current_storage_size_mb,
 FROM sys.database_query_store_options;
 ```
 
-If `actual_state_desc` differs from `desired_state_desc`, Query Store silently changed mode — usually because it hit the size quota and dropped to `READ_ONLY`. See [readonly_reason bitmap reference](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-database-query-store-options-transact-sql) and the maintenance script [scripts/08-maintenance-cleanup.sql](../scripts/08-maintenance-cleanup.sql).
+If `actual_state_desc` differs from `desired_state_desc`, Query Store silently changed mode — usually because it hit the size quota and dropped to `READ_ONLY`. See the [readonly_reason bitmap reference](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-database-query-store-options-transact-sql) and the maintenance script in [06_Maintenance_And_Best_Practices](../06_Maintenance_And_Best_Practices/maintenance-cleanup.sql).
 
-Hands-on: [scripts/01-enable-configure-query-store.sql](../scripts/01-enable-configure-query-store.sql)
-
-Next: [Catalog views and DMVs](03-catalog-views-and-dmvs.md)
+Next: [02_Generate_Workload](../02_Generate_Workload/)
 
 ## Sources
 

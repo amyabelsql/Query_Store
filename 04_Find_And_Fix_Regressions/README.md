@@ -1,4 +1,4 @@
-# Troubleshooting Scenarios
+# 04 - Find And Fix Regressions
 
 ## The basic workflow
 
@@ -25,7 +25,7 @@ Object Explorer → your database → **Query Store** folder gives you GUI repor
 When a query has multiple plans and the most recent one is worse:
 
 1. Open **Regressed Queries**, select the query, compare the plans.
-2. Force the better plan (GUI button, or `sp_query_store_force_plan` — see [scripts/06-forcing-plans-demo.sql](../scripts/06-forcing-plans-demo.sql)).
+2. Force the better plan (GUI button, or `sp_query_store_force_plan` — see [03-forcing-plans-demo.sql](03-forcing-plans-demo.sql)).
 3. Check for a missing index recommendation surfaced in the plan.
 4. Consider whether statistics are stale (large gap between estimated and actual rows).
 5. Regularly re-check forced plans — schema changes can invalidate them:
@@ -80,9 +80,9 @@ WHERE query_parameterization_type = 0;
 
 Query Store ties a query's history to its containing object (stored procedure, function, trigger). Recreating that object (`DROP` + `CREATE`) starts a brand-new history and breaks any forced plan. Use `ALTER <object>` instead whenever possible.
 
-Hands-on: [scripts/04-find-top-resource-consumers.sql](../scripts/04-find-top-resource-consumers.sql), [scripts/05-find-regressed-queries.sql](../scripts/05-find-regressed-queries.sql)
+Hands-on: [01-find-top-resource-consumers.sql](01-find-top-resource-consumers.sql), [02-find-regressed-queries.sql](02-find-regressed-queries.sql), [03-forcing-plans-demo.sql](03-forcing-plans-demo.sql)
 
-Next: [SQL Server 2022 features](05-sql2022-features.md)
+Next: [05_SQL_2022_Features](../05_SQL_2022_Features/)
 
 ## Sources
 

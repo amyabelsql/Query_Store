@@ -1,7 +1,7 @@
 /*
-    04 - Find top resource-consuming queries
-    Companion to docs/04-troubleshooting-scenarios.md. Same technique
-    behind the SSMS "Top Resource Consuming Queries" report.
+    01 - Find top resource-consuming queries
+    Companion to README.md in this folder. Same technique behind the
+    SSMS "Top Resource Consuming Queries" report.
 */
 
 USE [AdventureWorks2022];

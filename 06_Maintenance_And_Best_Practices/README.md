@@ -1,6 +1,8 @@
-# Best Practices Checklist
+# 06 - Maintenance And Best Practices
 
-A one-page summary of [Microsoft's Query Store best practices](https://learn.microsoft.com/sql/relational-databases/performance/manage-the-query-store). Print this, or keep it open during the workshop.
+Run [maintenance-cleanup.sql](maintenance-cleanup.sql) to check size/state, purge stale ad hoc queries, and reset the database back to production-realistic settings (`AUTO` capture, full-length intervals) once you're done with the labs.
+
+Below is a one-page summary of [Microsoft's Query Store best practices](https://learn.microsoft.com/sql/relational-databases/performance/manage-the-query-store) — print this, or keep it open during the workshop.
 
 ## Configuration
 
@@ -33,7 +35,7 @@ A one-page summary of [Microsoft's Query Store best practices](https://learn.mic
 | Type | Recommendation                                                                                                | Why                                                         |
 | ---- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | Do   | Treat plan forcing as a mitigation, not a fix                                                                 | Follow up with root-cause work (index, statistics, rewrite) |
-| Do   | Prefer [Query Store hints](05-sql2022-features.md#query-store-hints) on SQL Server 2022+ / Azure SQL Database | Steers one query without editing application code           |
+| Do   | Prefer [Query Store hints](../05_SQL_2022_Features/#query-store-hints) on SQL Server 2022+ / Azure SQL Database | Steers one query without editing application code           |
 
 ## Mission-critical / high-throughput servers
 
@@ -49,6 +51,8 @@ A one-page summary of [Microsoft's Query Store best practices](https://learn.mic
 | ---- | ---------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Do   | Match secondary replica service tier/compute size to the primary | Mismatched tiers throttle the transaction log                           |
 | Note | Query Store on a readable secondary is read-only                 | Unless Query Store for secondary replicas is enabled (SQL Server 2025+) |
+
+Next: [07_Production_Runbook](../07_Production_Runbook/) — this is the last workshop lab; the two folders after this one are standalone production tooling rather than step-by-step labs.
 
 ## Sources
 

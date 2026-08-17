@@ -1,9 +1,9 @@
 /*
-    07 - Query Store hints (SQL Server 2022+ / Azure SQL Database)
-    Companion to docs/05-sql2022-features.md. Applies a query hint to
+    01 - Query Store hints (SQL Server 2022+ / Azure SQL Database)
+    Companion to README.md in this folder. Applies a query hint to
     dbo.QS_OrdersByCustomer without touching its Transact-SQL text.
 
-    Run 02-generate-sample-workload.sql first.
+    Run 02_Generate_Workload/generate-workload.sql first.
 */
 
 USE [AdventureWorks2022];

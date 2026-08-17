@@ -1,4 +1,4 @@
-# SQL Server 2022 Features Built on Query Store
+# 05 - SQL Server 2022 Features Built on Query Store
 
 Query Store is the foundation for several Intelligent Query Processing features introduced in SQL Server 2022. All three require Query Store to be enabled and in `READ_WRITE` mode.
 
@@ -59,9 +59,9 @@ WHERE p.has_compile_replay_script = 1;
 
 For queries where a single cached plan performs badly across skewed parameter values (the classic "parameter sniffing" problem), SQL Server 2022 can maintain **multiple** active plans per query, chosen per parameter value at runtime. Requires database compatibility level **160**. No configuration is needed beyond that — Query Store then tracks and can force any of the resulting plan variants like any other plan.
 
-Hands-on: [scripts/07-query-store-hints-demo.sql](../scripts/07-query-store-hints-demo.sql)
+Hands-on: [query-store-hints-demo.sql](query-store-hints-demo.sql)
 
-Next: [Best-practices cheat sheet](06-best-practices-cheatsheet.md)
+Next: [06_Maintenance_And_Best_Practices](../06_Maintenance_And_Best_Practices/)
 
 ## Sources
 
