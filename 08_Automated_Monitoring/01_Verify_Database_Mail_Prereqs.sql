@@ -1,19 +1,20 @@
 /*
-    Database Mail prerequisites
-    The monitoring job in this directory alerts by calling
+    The monitoring job in this folder alerts by calling
     msdb.dbo.sp_send_dbmail directly from the stored procedures in
-    01-monitoring-procedures.sql. That requires Database Mail to be
+    02_Monitoring_Procedures.sql. That requires Database Mail to be
     enabled and a working profile to already exist. Run this script to
-    check state before creating anything in 01 or 02.
+    check state before creating anything in 02 or 03.
 
     Database Mail setup is an instance-level, environment-specific
     decision (SMTP relay, credentials), so this script only checks and
-    tests -- it does not create an account/profile for you. The commented
+    tests. It does not create an account/profile for you. The commented
     template at the bottom shows the shape if you need one.
 */
 
--- 1. Is Database Mail XPs enabled?
-SELECT name, value_in_use
+-- Is Database Mail XPs enabled?
+SELECT
+    name AS [Name],
+    value_in_use AS [Value In Use]
 FROM sys.configurations
 WHERE name = 'Database Mail XPs';
 GO
@@ -23,25 +24,32 @@ GO
 -- EXEC sp_configure 'Database Mail XPs', 1; RECONFIGURE;
 -- EXEC sp_configure 'show advanced options', 0; RECONFIGURE;
 
--- 2. What profiles and accounts already exist?
-SELECT profile_id, name, description
+-- What profiles and accounts already exist?
+SELECT
+    profile_id AS [Profile Id],
+    name AS [Name],
+    description AS [Description]
 FROM msdb.dbo.sysmail_profile;
 GO
 
-SELECT account_id, name, email_address, mailserver_type
+SELECT
+    account_id AS [Account Id],
+    name AS [Name],
+    email_address AS [Email Address],
+    mailserver_type AS [Mail Server Type]
 FROM msdb.dbo.sysmail_account;
 GO
 
--- 3. Is the SQL Server Agent service account able to use Database Mail?
+-- Is the SQL Server Agent service account able to use Database Mail?
 -- (SQL Server Agent must be running, and MSDB must have Database Mail
--- profile access -- this is normally automatic once a profile exists.)
-SELECT is_enabled FROM msdb.dbo.sysmail_configuration
+-- profile access, this is normally automatic once a profile exists.)
+SELECT is_enabled AS [Enabled] FROM msdb.dbo.sysmail_configuration
 WHERE paramname = 'DatabaseMailEnabled';
 GO
 
--- 4. Send a test message once you have a profile name
--- Replace @profile_name and @recipients, then check delivery status with
--- the query below.
+-- Sends a test message once you have a profile name. Replace
+-- @profile_name and @recipients, then check delivery status with the
+-- query below.
 /*
 EXEC msdb.dbo.sp_send_dbmail
     @profile_name = N'<your Database Mail profile>',
@@ -50,15 +58,21 @@ EXEC msdb.dbo.sp_send_dbmail
     @body         = N'If you received this, Database Mail is working.';
 */
 
-SELECT TOP (10) mailitem_id, subject, sent_status, sent_date, last_mod_date
+SELECT TOP (10)
+    mailitem_id AS [Mail Item Id],
+    subject AS [Subject],
+    sent_status AS [Sent Status],
+    sent_date AS [Sent Date],
+    last_mod_date AS [Last Modified]
 FROM msdb.dbo.sysmail_allitems
 ORDER BY mailitem_id DESC;
 GO
 
 /*
-    Template: create a new account + profile if none exists.
-    Fill in your SMTP server details and run manually -- not part of the
-    repeatable monitoring/ setup because credentials are environment-specific.
+    Template: create a new account + profile if none exists. Fill in
+    your SMTP server details and run manually. Not part of the
+    repeatable monitoring setup because credentials are
+    environment-specific.
 
 EXEC msdb.dbo.sysmail_add_account_sp
     @account_name    = N'Query Store Monitoring',
@@ -73,8 +87,8 @@ EXEC msdb.dbo.sysmail_add_profileaccount_sp
     @account_name   = N'Query Store Monitoring',
     @sequence_number = 1;
 
--- Grant the msdb DatabaseMailUserRole to the SQL Server Agent service
--- account (or make the profile public) so the Agent job can send mail:
+-- Grants the msdb DatabaseMailUserRole to the SQL Server Agent service
+-- account (or makes the profile public) so the Agent job can send mail:
 EXEC msdb.dbo.sysmail_add_principalprofile_sp
     @profile_name    = N'Query Store Monitoring',
     @principal_name  = N'public',

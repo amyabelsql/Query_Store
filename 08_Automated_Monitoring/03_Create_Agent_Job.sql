@@ -1,31 +1,31 @@
 /*
-    Query Store monitoring - SQL Server Agent jobs
-    Creates four jobs: one per check (space/state, regressed queries,
-    performance thresholds) that can each be scheduled, disabled, or
-    have its thresholds changed independently -- e.g. run the cheap space
-    check every 15 minutes while the heavier regression check runs every
-    30, or pause just the performance job during a known-noisy deployment
-    window without touching the others -- plus a fourth "All Checks" job
-    that runs everything in one step via the usp_QS_RunAllChecks wrapper.
+    Creates four SQL Server Agent jobs: one per check (space/state,
+    regressed queries, performance thresholds) that can each be
+    scheduled, disabled, or have its thresholds changed independently.
+    For example, run the cheap space check every 15 minutes while the
+    heavier regression check runs every 30, or pause just the
+    performance job during a known-noisy deployment window without
+    touching the others. Plus a fourth "All Checks" job that runs
+    everything in one step via the usp_QS_RunAllChecks wrapper.
 
     Each job scans every database on the instance with Query Store
     enabled (see dbo.udf_QSMonitoredDatabases in
-    01-monitoring-procedures.sql) -- there is no per-database job to
+    02_Monitoring_Procedures.sql). There is no per-database job to
     create or maintain as databases are added or removed.
 
-    Run either the three individual jobs or the combined job, not both --
-    running both would alert twice for the same breach. The combined job
+    Run either the three individual jobs or the combined job, not both.
+    Running both would alert twice for the same breach. The combined job
     is created disabled (@enabled = 0) for that reason; enable it and
     disable the other three if you'd rather manage one job than three.
 
     Prerequisites:
-      - 00-verify-database-mail-prereqs.sql confirms Database Mail works
-      - 01-monitoring-procedures.sql has been run (it creates its objects in msdb)
+      - 01_Verify_Database_Mail_Prereqs.sql confirms Database Mail works
+      - 02_Monitoring_Procedures.sql has been run (it creates its objects in msdb)
       - SQL Server Agent service is running
       - The job's run-as context (SQL Server Agent service account, or a
         proxy/owner you assign) has access to the Query Store catalog
-        views in every database being monitored -- see the permissions
-        note at the top of 01-monitoring-procedures.sql
+        views in every database being monitored. See the permissions
+        note at the top of 02_Monitoring_Procedures.sql.
 
     Safe to re-run: each block drops and recreates its job so edits to
     the schedule or parameters below take effect.
@@ -79,7 +79,7 @@ EXEC msdb.dbo.sp_add_jobstep
     @on_success_action = 1,
     @on_fail_action = 2;
 
--- Every 15 minutes -- cheap check, worth catching quickly.
+-- Every 15 minutes. Cheap check, worth catching quickly.
 EXEC msdb.dbo.sp_add_jobschedule
     @job_id = @JobId,
     @name = N'Every 15 minutes',
@@ -136,7 +136,7 @@ EXEC msdb.dbo.sp_add_jobstep
     @on_success_action = 1,
     @on_fail_action = 2;
 
--- Every 30 minutes -- matches the typical Query Store interval length,
+-- Every 30 minutes. Matches the typical Query Store interval length,
 -- so consecutive runs usually compare against a freshly closed interval.
 EXEC msdb.dbo.sp_add_jobschedule
     @job_id = @JobId,
@@ -215,7 +215,7 @@ EXEC msdb.dbo.sp_add_jobserver
 GO
 
 -- ============================================================
--- Job 4: All checks combined (disabled by default -- see the
+-- Job 4: All checks combined (disabled by default; see the
 -- warning at the top of this file about not running this
 -- alongside the three individual jobs above)
 -- ============================================================
@@ -251,7 +251,7 @@ EXEC msdb.dbo.sp_add_job
     @job_name = @JobName,
     @enabled = 0,  -- enable only if you disable the three individual jobs above
     @description = N'Runs dbo.usp_QS_RunAllChecks (space, regressed queries, performance) against every ' +
-        N'Query Store-enabled database on the instance, in one step. Disabled by default -- do not enable ' +
+        N'Query Store-enabled database on the instance, in one step. Disabled by default; do not enable ' +
         N'alongside the individual per-check jobs.',
     @category_name = N'Database Maintenance',
     @job_id = @JobId OUTPUT;

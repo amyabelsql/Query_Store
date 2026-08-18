@@ -1,7 +1,6 @@
 /*
-    Query Store monitoring procedures
-    Three independent checks -- space/state, regressed queries, and
-    resource thresholds -- plus a wrapper that runs all three. Each check
+    Three independent checks (space/state, regressed queries, and
+    resource thresholds) plus a wrapper that runs all three. Each check
     scans every database on the instance that has Query Store enabled
     (sys.databases.is_query_store_on = 1), not a single named database,
     and sends one Database Mail message per check listing every database
@@ -9,7 +8,7 @@
 
     Created in msdb rather than a user database because each check
     queries across databases via dynamic, three-part-named SQL
-    (e.g. [SomeDb].sys.query_store_query) -- there's no single user
+    (e.g. [SomeDb].sys.query_store_query). There's no single user
     database that's the natural home for that.
 
     Permissions: the account the checks run as (the SQL Server Agent
@@ -20,7 +19,7 @@
     (or VIEW DATABASE STATE) granted in each monitored database.
 
     Prerequisite: Database Mail is enabled and @MailProfile exists. See
-    00-verify-database-mail-prereqs.sql.
+    01_Verify_Database_Mail_Prereqs.sql.
 */
 
 USE [msdb];
@@ -277,9 +276,9 @@ BEGIN
 END
 GO
 
--- 4. Wrapper: runs all three checks in one call. 02-create-agent-job.sql
+-- 4. Wrapper: runs all three checks in one call. 03_Create_Agent_Job.sql
 -- creates both a separate job per check and one combined job that calls
--- this wrapper (disabled by default) -- enable whichever mode you want,
+-- this wrapper (disabled by default). Enable whichever mode you want,
 -- not both, or the same breach will alert twice.
 CREATE OR ALTER PROCEDURE dbo.usp_QS_RunAllChecks
     @MailProfile NVARCHAR(128),

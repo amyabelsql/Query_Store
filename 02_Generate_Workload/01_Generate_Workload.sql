@@ -1,18 +1,15 @@
 /*
-    02 - Generate a sample workload
-    Creates two demo stored procedures and runs them repeatedly so Query
-    Store has real data for the rest of the labs. Also runs a batch of
-    non-parameterized ad hoc queries to demonstrate query-text bloat.
-
-    Run 01_Setup/01-setup-sample-db.sql first.
+    Creates two stored procedures and calls each one 50 times with
+    different parameters, then runs 30 non-parameterized ad hoc queries.
+    Gives Query Store real data to capture for the rest of this repo, and
+    the ad hoc batch shows how query-text bloat happens.
+    Run 01_Setup/02_Turn_On.sql and 01_Setup/03_Configure.sql first.
 */
 
 USE [AdventureWorks2022];
 GO
 
--- ---------------------------------------------------------------------------
--- 1. A supporting index and two parameterized demo procedures
--- ---------------------------------------------------------------------------
+-- Supporting index plus two parameterized procedures
 IF EXISTS (SELECT 1 FROM sys.indexes
            WHERE name = N'IX_QSDemo_SalesOrderDetail_ProductID'
              AND object_id = OBJECT_ID(N'Sales.SalesOrderDetail'))
@@ -47,11 +44,8 @@ BEGIN
 END
 GO
 
--- ---------------------------------------------------------------------------
--- 2. Parameterized workload: same query shape, different inputs.
---    This is the pattern Query Store handles well -- one query_id,
---    one plan, aggregated stats.
--- ---------------------------------------------------------------------------
+-- Runs each procedure 50 times with different parameters, same query
+-- shape each time, so Query Store aggregates them under one query_id
 DECLARE @i INT = 1, @ProductID INT, @CustomerID INT;
 WHILE @i <= 50
 BEGIN
@@ -63,12 +57,10 @@ BEGIN
 END
 GO
 
--- ---------------------------------------------------------------------------
--- 3. Ad hoc / non-parameterized workload.
---    Each iteration is a different literal, so SQL Server compiles a
---    new plan almost every time. This is the pattern that bloats Query
---    Store and the plan cache -- see 04_Find_And_Fix_Regressions/README.md.
--- ---------------------------------------------------------------------------
+-- Runs 30 non-parameterized queries, each with a different literal, so
+-- SQL Server compiles a near-new plan almost every time. This is the
+-- pattern that bloats Query Store and the plan cache. See
+-- 04_Find_And_Fix_Regressions.
 DECLARE @sql NVARCHAR(500), @j INT = 1;
 WHILE @j <= 30
 BEGIN
@@ -78,4 +70,4 @@ BEGIN
 END
 GO
 
-PRINT 'Workload generated. Wait about a minute for the first Query Store interval to flush, then run 03-explore-catalog-views.sql.';
+PRINT 'Workload generated. Wait about a minute for the first Query Store interval to flush, then run 03_Explore_Catalog_Views/01_Explore_Catalog_Views.sql.';

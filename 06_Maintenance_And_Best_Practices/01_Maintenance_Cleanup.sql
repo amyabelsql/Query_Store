@@ -1,39 +1,42 @@
 /*
-    01 - Maintenance and cleanup
-    Companion to README.md in this folder. Also resets the workshop-only
-    settings from 01_Setup/01-setup-sample-db.sql back to production
-    defaults.
+    Checks Query Store health, purges ad hoc noise, and resets thresholds
+    set in 01_Setup/03_Configure.sql back to production values. Run this
+    when you're done working through this repo.
 */
 
 USE [AdventureWorks2022];
 GO
 
--- Current size / state
-SELECT actual_state_desc, desired_state_desc, current_storage_size_mb,
-       max_storage_size_mb, readonly_reason
+-- Current size and state
+SELECT
+    actual_state_desc AS [Actual State],
+    desired_state_desc AS [Desired State],
+    current_storage_size_mb AS [Current Storage MB],
+    max_storage_size_mb AS [Max Storage MB],
+    readonly_reason AS [Readonly Reason]
 FROM sys.database_query_store_options;
 GO
 
 -- If actual_state_desc is READ_ONLY and readonly_reason includes 65536
--- (size quota reached), either raise the limit...
+-- (size quota reached), raises the limit
 ALTER DATABASE [AdventureWorks2022]
 SET QUERY_STORE (MAX_STORAGE_SIZE_MB = 2048);
 GO
 
--- ...or wipe all Query Store data and start over (destructive: this
--- deletes captured query/plan/runtime-stats history).
+-- Alternative to raising the limit: wipes all Query Store data and
+-- starts over. Destructive, deletes captured query/plan/runtime-stats
+-- history.
 -- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE CLEAR;
 -- GO
 
--- Explicitly force read-write mode back on
+-- Forces read-write mode back on explicitly
 ALTER DATABASE [AdventureWorks2022]
 SET QUERY_STORE (OPERATION_MODE = READ_WRITE);
 GO
 
--- Purge ad hoc / internal queries whose last execution was more than
--- 5 minutes ago, so they don't crowd out queries you actually want to
--- keep. Adapted from Microsoft's own sample cleanup script -- safe to
--- run repeatedly.
+-- Purges ad hoc/internal queries whose last execution was more than 5
+-- minutes ago, so they don't crowd out queries worth keeping. Adapted
+-- from Microsoft's own sample cleanup script, safe to run repeatedly.
 SET NOCOUNT ON;
 DECLARE @id INT;
 DECLARE adhoc_queries_cursor CURSOR FOR
@@ -58,16 +61,16 @@ CLOSE adhoc_queries_cursor;
 DEALLOCATE adhoc_queries_cursor;
 GO
 
--- Reset runtime stats for a single plan without deleting it
+-- Resets runtime stats for a single plan without deleting it
 -- EXEC sp_query_store_reset_exec_stats @plan_id = <plan_id>;
 
--- Recover from an ERROR state (SQL Server 2017+)
+-- Recovers from an ERROR state (SQL Server 2017+)
 -- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE = OFF;
 -- EXEC sp_query_store_consistency_check;
 -- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE = ON;
 -- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE (OPERATION_MODE = READ_WRITE);
 
--- Reset to production-realistic settings after the workshop
+-- Resets thresholds to production values
 ALTER DATABASE [AdventureWorks2022]
 SET QUERY_STORE
 (
@@ -77,11 +80,11 @@ SET QUERY_STORE
 );
 GO
 
--- If 04_Find_And_Fix_Regressions was run but 03-forcing-plans-demo.sql
+-- If 04_Find_And_Fix_Regressions was run but 03_Force_And_Unforce_Plan.sql
 -- (the fix step) wasn't, AdventureWorks2022's native
--- IX_SalesOrderDetail_ProductID index may still be disabled. Re-enable
+-- IX_SalesOrderDetail_ProductID index may still be disabled. Re-enables
 -- it unconditionally so cleanup doesn't leave the sample database worse
--- off than it started -- rebuilding an already-enabled index is a
+-- off than it started. Rebuilding an already-enabled index is a
 -- harmless no-op.
 IF EXISTS (SELECT 1 FROM sys.indexes
            WHERE name = N'IX_SalesOrderDetail_ProductID'
@@ -89,7 +92,7 @@ IF EXISTS (SELECT 1 FROM sys.indexes
     ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail REBUILD;
 GO
 
--- Optional: drop the workshop's demo objects entirely
+-- Optional: drops this repo's demo objects entirely
 -- DROP PROCEDURE IF EXISTS dbo.QS_ProductSales;
 -- DROP PROCEDURE IF EXISTS dbo.QS_OrdersByCustomer;
 -- DROP INDEX IF EXISTS IX_QSDemo_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail;
