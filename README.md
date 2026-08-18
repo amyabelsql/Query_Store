@@ -17,6 +17,7 @@ Work through the numbered folders in order. Each one is self-contained: a short 
 | [06_Maintenance_And_Best_Practices](06_Maintenance_And_Best_Practices/) | Clean up, reset to production settings, and review the best-practices checklist |
 | [07_Production_Runbook](07_Production_Runbook/) | *(reference, not a lab)* Ad hoc troubleshooting queries for a real database |
 | [08_Automated_Monitoring](08_Automated_Monitoring/) | *(reference, not a lab)* A SQL Server Agent job that alerts on Query Store problems |
+| [09_Query_Store_On_Secondary_Replicas](09_Query_Store_On_Secondary_Replicas/) | *(reference, requires an Availability Group)* SQL Server 2025 preview: capture Query Store data from readable secondaries |
 
 Run these in SSMS or the [mssql VS Code extension](https://learn.microsoft.com/sql/tools/visual-studio-code-extensions/mssql/mssql-extension-visual-studio-code).
 

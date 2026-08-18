@@ -78,3 +78,4 @@ database.
 
 - [07_Production_Runbook](../07_Production_Runbook/) — the same regression and health logic, as ad hoc queries against one database at a time for manual troubleshooting rather than a recurring, instance-wide alert
 - [06_Maintenance_And_Best_Practices](../06_Maintenance_And_Best_Practices/) — the space/state thresholds here are the operational form of the configuration guidance there
+- [09_Query_Store_On_Secondary_Replicas](../09_Query_Store_On_Secondary_Replicas/) — if your monitored databases are in an availability group, secondary replicas need their own consideration (SQL Server 2025+ preview)

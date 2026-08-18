@@ -11,13 +11,18 @@
 USE [AdventureWorks2022];
 GO
 
--- Step 1: restore the supporting index so the good plan is achievable again
+-- Step 1: restore the supporting indexes so the good plan is achievable
+-- again -- both the workshop's covering index and AdventureWorks2022's
+-- native one, which 02-find-regressed-queries.sql disabled.
 IF NOT EXISTS (SELECT 1 FROM sys.indexes
                WHERE name = N'IX_QSDemo_SalesOrderDetail_ProductID'
                  AND object_id = OBJECT_ID(N'Sales.SalesOrderDetail'))
     CREATE NONCLUSTERED INDEX IX_QSDemo_SalesOrderDetail_ProductID
         ON Sales.SalesOrderDetail (ProductID)
         INCLUDE (OrderQty, UnitPrice, LineTotal);
+GO
+
+ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail REBUILD;
 GO
 
 -- Step 2: list the query_id and available plan_ids
@@ -62,6 +67,7 @@ GO
 /*
 EXEC sys.sp_query_store_force_plan @query_id = <query_id>, @plan_id = <plan_id>;
 DROP INDEX IX_QSDemo_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail;
+ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail DISABLE;
 EXEC dbo.QS_ProductSales @ProductID = 855;
 
 SELECT p.query_id, p.plan_id, p.is_forced_plan,
@@ -70,4 +76,10 @@ FROM sys.query_store_plan AS p
 WHERE p.is_forced_plan = 1;
 
 EXEC sys.sp_query_store_unforce_plan @query_id = <query_id>, @plan_id = <plan_id>;
+
+-- Restore both indexes again -- this block disabled them a second time.
+CREATE NONCLUSTERED INDEX IX_QSDemo_SalesOrderDetail_ProductID
+    ON Sales.SalesOrderDetail (ProductID)
+    INCLUDE (OrderQty, UnitPrice, LineTotal);
+ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail REBUILD;
 */

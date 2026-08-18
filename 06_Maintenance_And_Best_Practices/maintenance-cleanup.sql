@@ -77,6 +77,18 @@ SET QUERY_STORE
 );
 GO
 
+-- If 04_Find_And_Fix_Regressions was run but 03-forcing-plans-demo.sql
+-- (the fix step) wasn't, AdventureWorks2022's native
+-- IX_SalesOrderDetail_ProductID index may still be disabled. Re-enable
+-- it unconditionally so cleanup doesn't leave the sample database worse
+-- off than it started -- rebuilding an already-enabled index is a
+-- harmless no-op.
+IF EXISTS (SELECT 1 FROM sys.indexes
+           WHERE name = N'IX_SalesOrderDetail_ProductID'
+             AND object_id = OBJECT_ID(N'Sales.SalesOrderDetail'))
+    ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail REBUILD;
+GO
+
 -- Optional: drop the workshop's demo objects entirely
 -- DROP PROCEDURE IF EXISTS dbo.QS_ProductSales;
 -- DROP PROCEDURE IF EXISTS dbo.QS_OrdersByCustomer;

@@ -30,9 +30,9 @@ GO
 USE [AdventureWorks2022];
 GO
 
--- Wipe any prior Query Store history so the workshop starts clean.
-ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE CLEAR;
-GO
+-- -- Wipe any prior Query Store history so the workshop starts clean.
+-- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE CLEAR;
+-- GO
 
 ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE
 (

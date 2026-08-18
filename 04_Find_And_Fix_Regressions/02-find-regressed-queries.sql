@@ -1,9 +1,10 @@
 /*
     02 - Create and find a regressed query
-    Deliberately regresses dbo.QS_ProductSales by dropping its supporting
-    index, then shows how to spot the regression through the runtime
-    stats interval history -- the same signal behind the SSMS
-    "Regressed Queries" report.
+    Deliberately regresses dbo.QS_ProductSales by removing every index
+    that supports its WHERE clause (the workshop's own index and
+    AdventureWorks2022's native one), then shows how to spot the
+    regression through the runtime stats interval history -- the same
+    signal behind the SSMS "Regressed Queries" report.
 
     Run 01_Setup/01-setup-sample-db.sql and
     02_Generate_Workload/generate-workload.sql first.
@@ -23,8 +24,17 @@ GO
 WAITFOR DELAY '00:01:05';
 GO
 
--- Step 3: remove the supporting index and force a recompile
+-- Step 3: remove the supporting index and force a recompile.
+--
+-- AdventureWorks2022 ships its OWN nonclustered index on this column
+-- (IX_SalesOrderDetail_ProductID, created by Microsoft's own install
+-- script) in addition to the workshop's covering index. If you only
+-- drop the workshop index, the optimizer just falls back to that native
+-- index and the plan barely changes -- no visible regression. Disable
+-- both so there's truly no supporting index left and the optimizer has
+-- to fall back to a full clustered index scan.
 DROP INDEX IX_QSDemo_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail;
+ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail DISABLE;
 EXEC sp_recompile N'dbo.QS_ProductSales';
 GO
 

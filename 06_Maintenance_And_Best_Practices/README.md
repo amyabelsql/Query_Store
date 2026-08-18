@@ -50,9 +50,9 @@ Below is a one-page summary of [Microsoft's Query Store best practices](https://
 | Type | Recommendation                                                   | Why                                                                     |
 | ---- | ---------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Do   | Match secondary replica service tier/compute size to the primary | Mismatched tiers throttle the transaction log                           |
-| Note | Query Store on a readable secondary is read-only                 | Unless Query Store for secondary replicas is enabled (SQL Server 2025+) |
+| Note | Query Store on a readable secondary is read-only by default      | SQL Server 2025+ can capture from secondaries too — see [09_Query_Store_On_Secondary_Replicas](../09_Query_Store_On_Secondary_Replicas/) (preview, requires an AG) |
 
-Next: [07_Production_Runbook](../07_Production_Runbook/) — this is the last workshop lab; the two folders after this one are standalone production tooling rather than step-by-step labs.
+Next: [07_Production_Runbook](../07_Production_Runbook/) — this is the last workshop lab; the folders after this one are standalone production tooling rather than step-by-step labs.
 
 ## Sources
 

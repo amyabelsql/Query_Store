@@ -40,6 +40,8 @@ WHERE is_forced_plan = 1;
 
 Plan forcing is a mitigation, not a fix — treat it as a stopgap while you address the root cause (missing index, stale stats, or a query rewrite).
 
+**A gotcha in this workshop's own regression demo:** AdventureWorks2022 ships with its own nonclustered index on `Sales.SalesOrderDetail(ProductID)` (`IX_SalesOrderDetail_ProductID`), separate from the workshop's own demo index. [02-find-regressed-queries.sql](02-find-regressed-queries.sql) disables *both* before dropping the workshop index — if you only drop the workshop one, the optimizer just keeps using AdventureWorks' native index and you won't see a regression at all.
+
 ## Wait statistics: from instance-level guesswork to per-query answers
 
 Query Store groups individual wait types into **wait categories** so you can go straight from "the server is under X pressure" to "these specific queries are causing it."

@@ -52,11 +52,13 @@ GO
 --    This is the pattern Query Store handles well -- one query_id,
 --    one plan, aggregated stats.
 -- ---------------------------------------------------------------------------
-DECLARE @i INT = 1;
+DECLARE @i INT = 1, @ProductID INT, @CustomerID INT;
 WHILE @i <= 50
 BEGIN
-    EXEC dbo.QS_ProductSales @ProductID = 707 + (@i % 20);
-    EXEC dbo.QS_OrdersByCustomer @CustomerID = 29485 + (@i % 30);
+    SET @ProductID = 707 + (@i % 20);
+    SET @CustomerID = 29485 + (@i % 30);
+    EXEC dbo.QS_ProductSales @ProductID = @ProductID;
+    EXEC dbo.QS_OrdersByCustomer @CustomerID = @CustomerID;
     SET @i += 1;
 END
 GO
