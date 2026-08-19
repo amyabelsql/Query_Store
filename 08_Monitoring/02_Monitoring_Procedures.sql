@@ -1,33 +1,60 @@
 /*
-    Three independent checks (space/state, regressed queries, and
-    resource thresholds) plus a wrapper that runs all three. Each check
-    scans every database on the instance that has Query Store enabled
-    (sys.databases.is_query_store_on = 1), not a single named database,
-    and sends one Database Mail message per check listing every database
-    that breached its threshold. A clean run sends nothing.
+    Run this whole script once, top to bottom (e.g. F5 in SSMS). Every
+    CREATE is CREATE OR ALTER, safe to re-run. Nothing here sends mail
+    by itself, it only creates the function, table, and procedures that
+    03_Create_Agent_Job.sql schedules.
+
+    1. Creates a helper function listing every database that has Query
+       Store enabled, so all checks agree on what to scan
+    2. Creates a table tracking which plans were forced last time
+       usp_QS_CheckForcedPlanChanges ran
+    3. Creates the space/state check, alerts when a database's actual
+       and desired state have drifted apart, or storage is past
+       @WarningPercent of quota
+    4. Creates the regressed query check, alerts when a query's most
+       recent interval is @RegressionThresholdPct slower than the one
+       before it
+    5. Creates the resource threshold check, alerts when a query exceeds
+       @DurationThresholdMs or @CpuThresholdMs
+    6. Creates the forced plan failure check, alerts when a forced plan
+       has stopped applying (force_failure_count > 0)
+    7. Creates the forced plan change check, alerts when a plan gets
+       forced or unforced since the last run, and lists every plan
+       currently forced
+    8. Creates a wrapper procedure that runs all five checks in one call
+
+    Each check scans every database on the instance with Query Store
+    enabled, not a single named database, and sends one Database Mail
+    message per check listing every database that breached its
+    threshold. A clean run sends nothing.
 
     Created in msdb rather than a user database because each check
-    queries across databases via dynamic, three-part-named SQL
-    (e.g. [SomeDb].sys.query_store_query). There's no single user
-    database that's the natural home for that.
+    queries across databases via dynamic, three-part-named SQL (e.g.
+    [SomeDb].sys.query_store_query). There's no single user database
+    that's the natural home for that.
 
     Permissions: the account the checks run as (the SQL Server Agent
     service account, or the job's proxy/owner) needs access to the Query
     Store catalog views in every database being monitored. Membership in
     the sysadmin fixed server role is the simplest way to guarantee that
-    for a monitoring job; a lighter-weight alternative is db_datareader
+    for a monitoring job. A lighter-weight alternative is db_datareader
     (or VIEW DATABASE STATE) granted in each monitored database.
 
-    Prerequisite: Database Mail is enabled and @MailProfile exists. See
-    01_Verify_Database_Mail_Prereqs.sql.
+    Run 01_Verify_Database_Mail_Prereqs.sql first, to confirm Database
+    Mail is enabled and a profile exists.
+
+    A clean run creates the objects silently, there's nothing to check
+    here. To confirm they actually work, run one manually (see
+    00_Monitoring_Doc.md's "Trigger an alert manually" section) with a
+    low threshold so it's guaranteed to send mail.
 */
 
 USE [msdb];
 GO
 
--- 0. Helper: which databases should be checked
--- Centralized here so all three checks (and any future one) agree on
--- what "a database using Query Store" means.
+-- 1. Helper: which databases should be checked
+-- Centralized here so every check agrees on what "a database using
+-- Query Store" means.
 CREATE OR ALTER FUNCTION dbo.udf_QSMonitoredDatabases()
 RETURNS TABLE
 AS
@@ -40,7 +67,22 @@ RETURN
 );
 GO
 
--- 1. Space and state check
+-- 2. Helper: last known set of forced plans
+-- usp_QS_CheckForcedPlanChanges compares the current set of forced
+-- plans against this table to detect what changed since it last ran,
+-- then overwrites it with the current set.
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'QS_ForcedPlanSnapshot' AND schema_id = SCHEMA_ID('dbo'))
+BEGIN
+    CREATE TABLE dbo.QS_ForcedPlanSnapshot (
+        database_name SYSNAME NOT NULL,
+        query_id BIGINT NOT NULL,
+        plan_id BIGINT NOT NULL,
+        CONSTRAINT PK_QS_ForcedPlanSnapshot PRIMARY KEY (database_name, query_id, plan_id)
+    );
+END
+GO
+
+-- 3. Space and state check
 -- Alerts, per database, when actual_state has drifted from desired_state
 -- (Query Store silently changed mode) or storage is past @WarningPercent
 -- of quota.
@@ -106,7 +148,7 @@ BEGIN
 END
 GO
 
--- 2. Regressed query check
+-- 4. Regressed query check
 -- Alerts, per database, when any query's most recent interval is at
 -- least @RegressionThresholdPct slower, on average, than the interval
 -- before it. @TopN caps how many regressed queries are reported per
@@ -192,7 +234,7 @@ BEGIN
 END
 GO
 
--- 3. Resource threshold check
+-- 5. Resource threshold check
 -- Alerts, per database, when any query executed in the last
 -- @LookbackMinutes exceeded @DurationThresholdMs average duration or
 -- @CpuThresholdMs average CPU time. Catches new slow queries that aren't
@@ -276,7 +318,173 @@ BEGIN
 END
 GO
 
--- 4. Wrapper: runs all three checks in one call. 03_Create_Agent_Job.sql
+-- 6. Forced plan failure check
+-- Alerts, per database, when a forced plan has stopped applying at
+-- least once (force_failure_count > 0), usually because a schema
+-- change invalidated it and Query Store silently fell back to the
+-- optimizer's normal choice.
+CREATE OR ALTER PROCEDURE dbo.usp_QS_CheckForcedPlanFailures
+    @MailProfile NVARCHAR(128),
+    @Recipients NVARCHAR(400),
+    @TopN INT = 10
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    CREATE TABLE #failures (
+        database_name SYSNAME,
+        query_id BIGINT,
+        plan_id BIGINT,
+        force_failure_count INT,
+        last_force_failure_reason_desc NVARCHAR(120),
+        query_sql_text NVARCHAR(4000)
+    );
+
+    DECLARE @DbName SYSNAME, @Sql NVARCHAR(MAX);
+    DECLARE db_cursor CURSOR LOCAL FAST_FORWARD FOR
+        SELECT database_name FROM dbo.udf_QSMonitoredDatabases();
+    OPEN db_cursor;
+    FETCH NEXT FROM db_cursor INTO @DbName;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @Sql = N'SELECT TOP (@TopN)
+                ' + QUOTENAME(@DbName, N'''') + N' AS database_name,
+                p.query_id, p.plan_id, p.force_failure_count, p.last_force_failure_reason_desc,
+                qt.query_sql_text
+            FROM ' + QUOTENAME(@DbName) + N'.sys.query_store_plan AS p
+            JOIN ' + QUOTENAME(@DbName) + N'.sys.query_store_query AS q ON p.query_id = q.query_id
+            JOIN ' + QUOTENAME(@DbName) + N'.sys.query_store_query_text AS qt ON q.query_text_id = qt.query_text_id
+            WHERE p.is_forced_plan = 1 AND p.force_failure_count > 0
+            ORDER BY p.force_failure_count DESC;';
+
+        INSERT INTO #failures (database_name, query_id, plan_id, force_failure_count, last_force_failure_reason_desc, query_sql_text)
+        EXEC sp_executesql @Sql, N'@TopN INT', @TopN = @TopN;
+
+        FETCH NEXT FROM db_cursor INTO @DbName;
+    END
+    CLOSE db_cursor;
+    DEALLOCATE db_cursor;
+
+    DECLARE @ReportLines NVARCHAR(MAX);
+    SELECT @ReportLines = STRING_AGG(
+        CONCAT(database_name, N' / query_id ', query_id, N' / plan_id ', plan_id, N': ', force_failure_count,
+               N' failure(s), last reason ', last_force_failure_reason_desc, NCHAR(13), NCHAR(10), LEFT(query_sql_text, 200)),
+        NCHAR(13) + NCHAR(10) + NCHAR(13) + NCHAR(10)
+    ) WITHIN GROUP (ORDER BY force_failure_count DESC)
+    FROM #failures;
+
+    IF @ReportLines IS NOT NULL
+    BEGIN
+        DECLARE @Subject NVARCHAR(200) = N'Query Store alert: forced plan failures (' + CAST(SERVERPROPERTY('ServerName') AS NVARCHAR(128)) + N')';
+
+        EXEC msdb.dbo.sp_send_dbmail
+            @profile_name = @MailProfile,
+            @recipients = @Recipients,
+            @subject = @Subject,
+            @body = @ReportLines;
+    END
+END
+GO
+
+-- 7. Forced plan change check
+-- Compares the plans forced right now against dbo.QS_ForcedPlanSnapshot
+-- (the set as of the last run) and alerts if anything changed, a plan
+-- got forced or unforced since then. The alert body also lists every
+-- plan forced right now, so it doubles as a standing inventory. On the
+-- very first run the snapshot is empty, so everything currently forced
+-- shows up as "newly forced", that's expected, not a false alarm.
+CREATE OR ALTER PROCEDURE dbo.usp_QS_CheckForcedPlanChanges
+    @MailProfile NVARCHAR(128),
+    @Recipients NVARCHAR(400)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    CREATE TABLE #current_forced (
+        database_name SYSNAME,
+        query_id BIGINT,
+        plan_id BIGINT,
+        query_sql_text NVARCHAR(4000)
+    );
+
+    DECLARE @DbName SYSNAME, @Sql NVARCHAR(MAX);
+    DECLARE db_cursor CURSOR LOCAL FAST_FORWARD FOR
+        SELECT database_name FROM dbo.udf_QSMonitoredDatabases();
+    OPEN db_cursor;
+    FETCH NEXT FROM db_cursor INTO @DbName;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @Sql = N'SELECT
+                ' + QUOTENAME(@DbName, N'''') + N' AS database_name,
+                p.query_id, p.plan_id, qt.query_sql_text
+            FROM ' + QUOTENAME(@DbName) + N'.sys.query_store_plan AS p
+            JOIN ' + QUOTENAME(@DbName) + N'.sys.query_store_query AS q ON p.query_id = q.query_id
+            JOIN ' + QUOTENAME(@DbName) + N'.sys.query_store_query_text AS qt ON q.query_text_id = qt.query_text_id
+            WHERE p.is_forced_plan = 1;';
+
+        INSERT INTO #current_forced (database_name, query_id, plan_id, query_sql_text)
+        EXEC (@Sql);
+
+        FETCH NEXT FROM db_cursor INTO @DbName;
+    END
+    CLOSE db_cursor;
+    DEALLOCATE db_cursor;
+
+    DECLARE @NewlyForced NVARCHAR(MAX);
+    SELECT @NewlyForced = STRING_AGG(
+        CONCAT(c.database_name, N' / query_id ', c.query_id, N' / plan_id ', c.plan_id,
+               NCHAR(13), NCHAR(10), LEFT(c.query_sql_text, 200)),
+        NCHAR(13) + NCHAR(10) + NCHAR(13) + NCHAR(10)
+    )
+    FROM #current_forced AS c
+    LEFT JOIN dbo.QS_ForcedPlanSnapshot AS s
+        ON s.database_name = c.database_name AND s.query_id = c.query_id AND s.plan_id = c.plan_id
+    WHERE s.database_name IS NULL;
+
+    DECLARE @NewlyUnforced NVARCHAR(MAX);
+    SELECT @NewlyUnforced = STRING_AGG(
+        CONCAT(s.database_name, N' / query_id ', s.query_id, N' / plan_id ', s.plan_id),
+        NCHAR(13) + NCHAR(10)
+    )
+    FROM dbo.QS_ForcedPlanSnapshot AS s
+    LEFT JOIN #current_forced AS c
+        ON c.database_name = s.database_name AND c.query_id = s.query_id AND c.plan_id = s.plan_id
+    WHERE c.database_name IS NULL;
+
+    DECLARE @CurrentList NVARCHAR(MAX);
+    SELECT @CurrentList = STRING_AGG(
+        CONCAT(database_name, N' / query_id ', query_id, N' / plan_id ', plan_id),
+        NCHAR(13) + NCHAR(10)
+    ) WITHIN GROUP (ORDER BY database_name, query_id)
+    FROM #current_forced;
+
+    IF @NewlyForced IS NOT NULL OR @NewlyUnforced IS NOT NULL
+    BEGIN
+        DECLARE @Subject NVARCHAR(200) = N'Query Store alert: forced plan changed (' + CAST(SERVERPROPERTY('ServerName') AS NVARCHAR(128)) + N')';
+        DECLARE @Body NVARCHAR(MAX) = N'';
+
+        IF @NewlyForced IS NOT NULL
+            SET @Body = @Body + N'Newly forced since last check:' + NCHAR(13) + NCHAR(10) + @NewlyForced + NCHAR(13) + NCHAR(10) + NCHAR(13) + NCHAR(10);
+
+        IF @NewlyUnforced IS NOT NULL
+            SET @Body = @Body + N'No longer forced since last check:' + NCHAR(13) + NCHAR(10) + @NewlyUnforced + NCHAR(13) + NCHAR(10) + NCHAR(13) + NCHAR(10);
+
+        SET @Body = @Body + N'Currently forced (all):' + NCHAR(13) + NCHAR(10) + ISNULL(@CurrentList, N'(none)');
+
+        EXEC msdb.dbo.sp_send_dbmail
+            @profile_name = @MailProfile,
+            @recipients = @Recipients,
+            @subject = @Subject,
+            @body = @Body;
+    END
+
+    DELETE FROM dbo.QS_ForcedPlanSnapshot;
+    INSERT INTO dbo.QS_ForcedPlanSnapshot (database_name, query_id, plan_id)
+    SELECT database_name, query_id, plan_id FROM #current_forced;
+END
+GO
+
+-- 8. Wrapper: runs all five checks in one call. 03_Create_Agent_Job.sql
 -- creates both a separate job per check and one combined job that calls
 -- this wrapper (disabled by default). Enable whichever mode you want,
 -- not both, or the same breach will alert twice.
@@ -287,7 +495,8 @@ CREATE OR ALTER PROCEDURE dbo.usp_QS_RunAllChecks
     @RegressionThresholdPct DECIMAL(5, 2) = 50.0,
     @PerfLookbackMinutes INT = 30,
     @DurationThresholdMs INT = 5000,
-    @CpuThresholdMs INT = 5000
+    @CpuThresholdMs INT = 5000,
+    @ForcedFailureTopN INT = 10
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -305,5 +514,12 @@ BEGIN
         @LookbackMinutes = @PerfLookbackMinutes,
         @DurationThresholdMs = @DurationThresholdMs,
         @CpuThresholdMs = @CpuThresholdMs;
+
+    EXEC dbo.usp_QS_CheckForcedPlanFailures
+        @MailProfile = @MailProfile, @Recipients = @Recipients,
+        @TopN = @ForcedFailureTopN;
+
+    EXEC dbo.usp_QS_CheckForcedPlanChanges
+        @MailProfile = @MailProfile, @Recipients = @Recipients;
 END
 GO

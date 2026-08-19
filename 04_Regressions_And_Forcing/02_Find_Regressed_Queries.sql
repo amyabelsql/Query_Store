@@ -1,8 +1,15 @@
 /*
-    Regresses dbo.QS_ProductSales by removing every index that supports
-    its WHERE clause, then shows how to spot the regression through the
-    runtime stats interval history. Same signal behind the SSMS
-    "Regressed Queries" report.
+    Run this whole script once, top to bottom (e.g. F5 in SSMS). It will
+    sit idle for about 16 minutes at step 2, that's expected, not a
+    hang. Same signal behind the SSMS "Regressed Queries" report.
+
+    1. Captures the "before" plan while the supporting index is in place
+    2. Waits past the current Query Store interval, so "before" and
+       "after" land as separate rows
+    3. Removes the supporting indexes and forces a recompile
+    4. Captures the "after" plan, now a clustered index scan
+    5. Compares average duration and I/O per interval for this query
+
     Run 01_Setup/02_Turn_On.sql, 01_Setup/03_Configure.sql, and
     02_Generate_Workload/01_Generate_Workload.sql first.
 */

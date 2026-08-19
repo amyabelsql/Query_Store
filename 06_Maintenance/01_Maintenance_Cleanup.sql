@@ -1,13 +1,27 @@
 /*
-    Checks Query Store health, purges ad hoc noise, and resets thresholds
-    set in 01_Setup/03_Configure.sql back to production values. Run this
-    when you're done working through this repo.
+    Run this whole script once, top to bottom (e.g. F5 in SSMS). The
+    commented-out blocks (CLEAR, reset_exec_stats, ERROR recovery,
+    dropping demo objects) are optional extras, read them before
+    uncommenting and running any of them separately.
+
+    1. Shows current Query Store size and state
+    2. Raises the storage quota, in case it was READ_ONLY on space
+    3. Forces read/write mode back on explicitly
+    4. Purges ad hoc/internal queries idle for more than 5 minutes
+    5. Resets thresholds set in 01_Setup/03_Configure.sql back to
+       best-practice values (see 10_Best_Practices)
+    6. Re-enables AdventureWorks2022's native index if
+       04_Regressions_And_Forcing left it disabled
+
+    Run this when you're done working through this repo.
 */
 
 USE [AdventureWorks2022];
 GO
 
--- Current size and state
+-- Current size and state. [Actual State] should match [Desired State],
+-- if it doesn't, check [Readonly Reason] before continuing, the next
+-- two steps assume it's a space issue.
 SELECT
     actual_state_desc AS [Actual State],
     desired_state_desc AS [Desired State],
@@ -70,7 +84,7 @@ GO
 -- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE = ON;
 -- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE (OPERATION_MODE = READ_WRITE);
 
--- Resets thresholds to production values
+-- Resets thresholds to best-practice values (see 10_Best_Practices)
 ALTER DATABASE [AdventureWorks2022]
 SET QUERY_STORE
 (
@@ -80,7 +94,7 @@ SET QUERY_STORE
 );
 GO
 
--- If 04_Find_And_Fix_Regressions was run but 03_Force_And_Unforce_Plan.sql
+-- If 04_Regressions_And_Forcing was run but 03_Force_And_Unforce_Plan.sql
 -- (the fix step) wasn't, AdventureWorks2022's native
 -- IX_SalesOrderDetail_ProductID index may still be disabled. Re-enables
 -- it unconditionally so cleanup doesn't leave the sample database worse

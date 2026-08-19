@@ -1,7 +1,12 @@
 /*
-    Turns Query Store on for @DatabaseName. Change the value below.
-    Uses SQL Server's default thresholds. Run 03_Configure.sql next to
-    set the thresholds this repo uses.
+    Run this whole script once, top to bottom (e.g. F5 in SSMS).
+
+    1. Turns Query Store on for @DatabaseName, using SQL Server's own
+       default thresholds
+    2. Confirms it's actually on and in the mode requested
+
+    Change @DatabaseName below. Run 03_Configure.sql next to set the
+    thresholds this repo uses.
 */
 
 USE master;

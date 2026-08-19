@@ -8,11 +8,12 @@ Run these folders in this order:
 
 1. [00_Overview](00_Overview/) - install SQL Server, SSMS, and AdventureWorks2022
 2. [01_Setup](01_Setup/) - run `01_Prerequisites.sql`, `02_Turn_On.sql`, and `03_Configure.sql`
-3. [02_Generate_Workload](02_Generate_Workload/) - create data for Query Store to capture
-4. [08_Automated_Monitoring](08_Automated_Monitoring/) - set up alerts
-5. [04_Find_And_Fix_Regressions](04_Find_And_Fix_Regressions/) - create a regression and fix it
-6. [07_Production_Runbook](07_Production_Runbook/) - investigate the alert and confirm the cause
-7. [06_Maintenance_And_Best_Practices](06_Maintenance_And_Best_Practices/) - reset the demo and review the best-practice checklist
+3. [10_Best_Practices](10_Best_Practices/) - proactive guidance, read once before going further
+4. [02_Generate_Workload](02_Generate_Workload/) - create data for Query Store to capture
+5. [08_Monitoring](08_Monitoring/) - set up alerts
+6. [04_Regressions_And_Forcing](04_Regressions_And_Forcing/) - create a regression and fix it
+7. [07_Troubleshooting](07_Troubleshooting/) - investigate the alert and confirm the cause
+8. [06_Maintenance](06_Maintenance/) - reset the demo to production-style settings
 
 If you want the shortest demo, use **01 -> 02 -> 08 -> 04 -> 07**.
 
@@ -23,13 +24,14 @@ If you want the shortest demo, use **01 -> 02 -> 08 -> 04 -> 07**.
 | [00_Overview](00_Overview/) | Overview | What Query Store is, use cases, and prerequisites |
 | [01_Setup](01_Setup/) | Setup Query Store | Check prerequisites, turn it on, then configure it |
 | [02_Generate_Workload](02_Generate_Workload/) | Create demo activity | Generate queries and plans |
-| [03_Explore_Catalog_Views](03_Explore_Catalog_Views/) | See the raw data | Look at the Query Store catalog views directly |
-| [04_Find_And_Fix_Regressions](04_Find_And_Fix_Regressions/) | Fix a bad plan | Show a regression and force the better plan |
-| [05_SQL_2022_Features](05_SQL_2022_Features/) | Use Query Store hints | Apply a hint without changing app code |
-| [06_Maintenance_And_Best_Practices](06_Maintenance_And_Best_Practices/) | Reset and keep it healthy | Return to production-style settings and review best practices |
-| [07_Production_Runbook](07_Production_Runbook/) | Catch and fix the issue | Follow the alert to the root cause |
-| [08_Automated_Monitoring](08_Automated_Monitoring/) | Set up alerts | Create SQL Agent alerts for space, regressions, and slow queries |
-| [09_Query_Store_On_Secondary_Replicas](09_Query_Store_On_Secondary_Replicas/) | Secondary replica notes | Optional preview feature for AG environments |
+| [03_Catalog_Views](03_Catalog_Views/) | See the raw data | Look at the Query Store catalog views directly |
+| [04_Regressions_And_Forcing](04_Regressions_And_Forcing/) | Fix a bad plan | Show a regression and force the better plan |
+| [05_Version_Dependencies](05_Version_Dependencies/) | Know what your version supports | Every version gate in this repo, plus SQL Server 2022's newest features |
+| [06_Maintenance](06_Maintenance/) | Reset and keep it healthy | Return to production-style settings and clean up ad hoc noise |
+| [07_Troubleshooting](07_Troubleshooting/) | Catch and fix the issue | Follow the alert to the root cause |
+| [08_Monitoring](08_Monitoring/) | Set up alerts | Create SQL Agent alerts for space, regressions, slow queries, and forced plans |
+| [09_Secondary_Replicas](09_Secondary_Replicas/) | Secondary replica notes | Optional preview feature for AG environments |
+| [10_Best_Practices](10_Best_Practices/) | Get it right from the start | Rollout guidance, configuration philosophy, and monitoring/threshold strategy |
 
 Run everything in SSMS or the [mssql VS Code extension](https://learn.microsoft.com/sql/tools/visual-studio-code-extensions/mssql/mssql-extension-visual-studio-code).
 

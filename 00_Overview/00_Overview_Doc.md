@@ -1,10 +1,34 @@
-# 00 - Overview of Query Store
+# Overview of Query Store
 
 ## What is Query Store?
 
-Query Store is a SQL Server feature that records the history of your queries, their execution plans and how fast they ran, over time. When a query that used to be fast suddenly gets slow, you can look back at Query Store, see exactly what plan changed, and switch back to the plan that worked.
+Query Store is one of the easiest ways to troubleshoot query performance problems in SQL Server. It keeps a history of your queries, execution plans, and performance over time.
 
-It works on every SQL Server edition. You need SQL Server 2016 or later to use it at all, and SQL Server 2017 or later to capture wait statistics (why a query was slow, e.g. CPU, locking, or I/O).
+When a query suddenly gets slower, Query Store helps you see what changed and which plan was used.
+
+## When Should You Use It?
+
+Use Query Store when you need to identify query regressions and understand why performance changed.
+
+Requirements:
+
+- SQL Server 2016 or later for Query Store.
+- SQL Server 2017 or later to capture wait statistics, such as CPU pressure, locking, or I/O delays.
+
+Some Query Store features are version-dependent. See [05_Version_Dependencies](../05_Version_Dependencies/) for details.
+
+## The Three Stores
+
+Query Store is made up of three internal stores that work together, each with its own settings and system views.
+
+| Store | Holds | Setting that governs it |
+|---|---|---|
+| Plan Store | Query text and execution plans | `MAX_PLANS_PER_QUERY`, `MAX_STORAGE_SIZE_MB` |
+| Runtime Stats Store | Aggregated execution stats (duration, CPU, I/O, memory), bucketed by time interval | `INTERVAL_LENGTH_MINUTES` |
+| Wait Stats Store | Aggregated wait statistics per interval, why a query was slow, not just how slow | `WAIT_STATS_CAPTURE_MODE` |
+
+All three are flushed to disk based on `DATA_FLUSH_INTERVAL_SECONDS`. 
+See [03_Catalog_Views](../03_Catalog_Views/)  for the system views behind each store.
 
 ## What you need
 
@@ -20,13 +44,14 @@ It works on every SQL Server edition. You need SQL Server 2016 or later to use i
 |---|---|
 | [01_Setup](../01_Setup/) | Check prerequisites, turn Query Store on, configure it |
 | [02_Generate_Workload](../02_Generate_Workload/) | Run a sample workload so Query Store has data to capture |
-| [03_Explore_Catalog_Views](../03_Explore_Catalog_Views/) | Query the raw Query Store system views |
-| [04_Find_And_Fix_Regressions](../04_Find_And_Fix_Regressions/) | Create a regression, find it, force the good plan back |
-| [05_SQL_2022_Features](../05_SQL_2022_Features/) | Apply a query hint through Query Store |
-| [06_Maintenance_And_Best_Practices](../06_Maintenance_And_Best_Practices/) | Clean up and reset to production settings |
-| [07_Production_Runbook](../07_Production_Runbook/) | Investigate an alert and fix the root cause |
-| [08_Automated_Monitoring](../08_Automated_Monitoring/) | Set up SQL Agent alerts |
-| [09_Query_Store_On_Secondary_Replicas](../09_Query_Store_On_Secondary_Replicas/) | Notes for Availability Group secondaries |
+| [03_Catalog_Views](../03_Catalog_Views/) | Query the raw Query Store system views |
+| [04_Regressions_And_Forcing](../04_Regressions_And_Forcing/) | Create a regression, find it, force the good plan back |
+| [05_Version_Dependencies](../05_Version_Dependencies/) | Every version gate in this repo in one table, plus SQL Server 2022's newest features |
+| [06_Maintenance](../06_Maintenance/) | Clean up and reset to production settings |
+| [07_Troubleshooting](../07_Troubleshooting/) | Investigate an alert and fix the root cause |
+| [08_Monitoring](../08_Monitoring/) | Set up SQL Agent alerts |
+| [09_Secondary_Replicas](../09_Secondary_Replicas/) | Notes for Availability Group secondaries |
+| [10_Best_Practices](../10_Best_Practices/) | Proactive guidance, before anything breaks |
 
 Continue with [01_Setup](../01_Setup/).
 

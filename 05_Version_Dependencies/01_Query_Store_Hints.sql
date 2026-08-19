@@ -1,14 +1,25 @@
 /*
-    Applies a query hint to dbo.QS_OrdersByCustomer through Query Store,
-    without touching its Transact-SQL text (SQL Server 2022+ / Azure SQL
-    Database).
+    Do NOT just run this whole script at once. Step 1's output tells you
+    which <query_id> to type into steps 2, 3, and 5 before running them.
+    SQL Server 2022+ / Azure SQL Database only.
+
+    1. Finds the query_id for the target statement
+    2. Applies a hint that caps the memory grant and pins MAXDOP to 1
+       (edit the placeholder first)
+    3. Confirms the hint is registered (edit the placeholder first)
+    4. Re-runs the procedure so you can capture the actual plan and see
+       the hint took effect
+    5. Removes the hint (edit the placeholder first)
+
     Run 02_Generate_Workload/01_Generate_Workload.sql first.
 */
 
 USE [AdventureWorks2022];
 GO
 
--- Finds the query_id for the target statement
+-- Finds the query_id for the target statement. If more than one row
+-- comes back, match [Query Text] to the exact statement in
+-- dbo.QS_OrdersByCustomer before continuing.
 SELECT
     q.query_id AS [Query Id],
     qt.query_sql_text AS [Query Text]
@@ -24,7 +35,9 @@ EXEC sys.sp_query_store_set_hints
     @query_hints = N'OPTION (MAXDOP 1, MAX_GRANT_PERCENT = 10)';
 GO
 
--- Confirms the hint is registered
+-- Confirms the hint is registered. [Failure Count] should stay 0 and
+-- [Last Failure Reason] should be blank, a nonzero count means the
+-- hint couldn't be applied to this query shape.
 SELECT
     query_hint_id AS [Hint Id],
     query_id AS [Query Id],

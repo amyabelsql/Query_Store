@@ -1,11 +1,23 @@
 /*
-    Diagnoses Query Store itself: is it running, is it in the mode you
-    expect, is it near its size quota, is it silently dropping data. Run
-    this first, before 02_Performance_Troubleshooting_Queries.sql. A
-    Query Store that has gone READ_ONLY or ERROR gives misleading or
-    stale answers to everything downstream.
-    Companion to 01_Setup/00_Setup_Doc.md and
-    06_Maintenance_And_Best_Practices/00_Maintenance_And_Best_Practices_Doc.md.
+    Run this whole script once, top to bottom (e.g. F5 in SSMS). All
+    queries are read-only. The commented-out block at the bottom is an
+    optional fix, only run it manually if a query above shows an
+    `ERROR` state. Run this before
+    02_Performance_Troubleshooting_Queries.sql, a Query Store that's
+    gone READ_ONLY or ERROR gives misleading or stale answers to
+    everything downstream.
+
+    1. Current state vs. desired state
+    2. Decodes readonly_reason into plain text
+    3. Storage headroom
+    4. Query capture policy pressure (CUSTOM capture mode, 2019+)
+    5. Ad hoc / unique-query pressure
+    6. Forced-plan health
+    7. Execution counts by type (Regular / Aborted / Exception) per query
+    8. Just the Aborted and Exception executions, with interval detail
+
+    Companion to 01_Setup/00_Setup_Doc.md and this folder's
+    00_Troubleshooting_Doc.md.
 */
 
 USE [AdventureWorks2022];
@@ -43,7 +55,9 @@ FROM sys.database_query_store_options;
 GO
 
 -- Storage headroom, an alert threshold candidate for monitoring (used
--- as-is by 08_Automated_Monitoring/02_Monitoring_Procedures.sql)
+-- as-is by 08_Monitoring/02_Monitoring_Procedures.sql).
+-- [Pct Of Quota Used] climbing toward 100 means Query Store is close
+-- to forcing itself into READ_ONLY or starting size-based cleanup.
 SELECT
     current_storage_size_mb AS [Current Storage MB],
     max_storage_size_mb AS [Max Storage MB],
@@ -68,7 +82,7 @@ GO
 -- Ad hoc / unique-query pressure. A ratio near 1.0 means most captured
 -- queries are unique text (ad hoc), which bloats Query Store and pushes
 -- it toward its quota faster than a parameterized workload would. See
--- 04_Find_And_Fix_Regressions.
+-- 04_Regressions_And_Forcing.
 SELECT
     COUNT(*) AS [Total Queries],
     COUNT(DISTINCT query_hash) AS [Distinct Query Hashes],
@@ -77,8 +91,10 @@ FROM sys.query_store_query;
 GO
 
 -- Forced-plan health. A force_failure_count above 0 means a forced plan
--- stopped applying, usually a schema change invalidated it, and Query
--- Store silently fell back to the optimizer's normal choice.
+-- stopped applying, and Query Store silently fell back to the
+-- optimizer's normal choice. [Last Force Failure Reason] names why,
+-- most often NO_INDEX (an index the plan depended on was dropped or
+-- disabled). See 00_Troubleshooting_Doc.md for the full list of reasons.
 SELECT
     q.query_id AS [Query Id],
     p.plan_id AS [Plan Id],
@@ -89,6 +105,48 @@ FROM sys.query_store_plan AS p
 JOIN sys.query_store_query AS q ON p.query_id = q.query_id
 WHERE p.is_forced_plan = 1
 ORDER BY p.force_failure_count DESC;
+GO
+
+-- Execution counts by [Execution Type] per query. Regular is normal,
+-- the circle marker in SSMS's Query Store report charts. Aborted means
+-- something interrupted it before it finished, a client CommandTimeout,
+-- someone clicking Cancel, or a KILL, the square marker. Exception
+-- means the statement itself failed while running, a real error, not
+-- an interruption, the triangle marker. A query with a growing Aborted
+-- or Exception count next to its Regular count is worth investigating
+-- even if its average duration looks fine, timeouts and cancellations
+-- are often a symptom of something else: blocking, a missing index
+-- making it slow enough to time out, or bad data reaching a query that
+-- assumed it was clean.
+SELECT
+    qt.query_sql_text AS [Query Text],
+    q.query_id AS [Query Id],
+    rs.execution_type_desc AS [Execution Type],
+    SUM(rs.count_executions) AS [Executions]
+FROM sys.query_store_runtime_stats AS rs
+JOIN sys.query_store_plan AS p ON rs.plan_id = p.plan_id
+JOIN sys.query_store_query AS q ON p.query_id = q.query_id
+JOIN sys.query_store_query_text AS qt ON q.query_text_id = qt.query_text_id
+GROUP BY qt.query_sql_text, q.query_id, rs.execution_type_desc
+ORDER BY CASE WHEN rs.execution_type_desc = 'Regular' THEN 1 ELSE 0 END, [Executions] DESC;
+GO
+
+-- Just the Aborted and Exception executions, with per-interval detail.
+SELECT
+    qt.query_sql_text AS [Query Text],
+    q.query_id AS [Query Id],
+    p.plan_id AS [Plan Id],
+    rs.execution_type_desc AS [Execution Type],
+    rsi.start_time AS [Interval Start],
+    rs.count_executions AS [Executions],
+    rs.avg_duration / 1000.0 AS [Avg Duration MS]
+FROM sys.query_store_runtime_stats AS rs
+JOIN sys.query_store_plan AS p ON rs.plan_id = p.plan_id
+JOIN sys.query_store_query AS q ON p.query_id = q.query_id
+JOIN sys.query_store_query_text AS qt ON q.query_text_id = qt.query_text_id
+JOIN sys.query_store_runtime_stats_interval AS rsi ON rs.runtime_stats_interval_id = rsi.runtime_stats_interval_id
+WHERE rs.execution_type_desc <> 'Regular'
+ORDER BY rsi.start_time DESC;
 GO
 
 -- Recovering from an ERROR state (SQL Server 2017+). Uncomment and run

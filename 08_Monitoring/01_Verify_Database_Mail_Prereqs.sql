@@ -1,17 +1,26 @@
 /*
-    The monitoring job in this folder alerts by calling
-    msdb.dbo.sp_send_dbmail directly from the stored procedures in
-    02_Monitoring_Procedures.sql. That requires Database Mail to be
-    enabled and a working profile to already exist. Run this script to
-    check state before creating anything in 02 or 03.
+    Run this whole script once, top to bottom (e.g. F5 in SSMS). All
+    queries are read-only. The commented-out blocks (enabling Mail XPs,
+    sending a test message, the account/profile template) are optional,
+    only run them manually if a check above shows something missing.
+    Database Mail setup itself is environment-specific (SMTP relay,
+    credentials), so this script only checks and tests, it doesn't
+    create an account or profile for you.
 
-    Database Mail setup is an instance-level, environment-specific
-    decision (SMTP relay, credentials), so this script only checks and
-    tests. It does not create an account/profile for you. The commented
-    template at the bottom shows the shape if you need one.
+    1. Is Database Mail XPs enabled
+    2. What profiles and accounts already exist
+    3. Is the SQL Server Agent service account able to use Database Mail
+    4. Shows the last 10 mail items sent, so you can check delivery
+       status after a test message
+
+    The monitoring jobs in this folder alert by calling
+    msdb.dbo.sp_send_dbmail directly from 02_Monitoring_Procedures.sql,
+    which needs Database Mail enabled and a working profile. Run this
+    script before creating anything in 02 or 03.
 */
 
--- Is Database Mail XPs enabled?
+-- Is Database Mail XPs enabled? [Value In Use] should be 1. If it's 0,
+-- uncomment and run the enable block below.
 SELECT
     name AS [Name],
     value_in_use AS [Value In Use]
@@ -24,7 +33,9 @@ GO
 -- EXEC sp_configure 'Database Mail XPs', 1; RECONFIGURE;
 -- EXEC sp_configure 'show advanced options', 0; RECONFIGURE;
 
--- What profiles and accounts already exist?
+-- What profiles and accounts already exist? Empty results from either
+-- query mean no profile/account exists yet, use the template at the
+-- bottom of this file to create one.
 SELECT
     profile_id AS [Profile Id],
     name AS [Name],
@@ -43,6 +54,7 @@ GO
 -- Is the SQL Server Agent service account able to use Database Mail?
 -- (SQL Server Agent must be running, and MSDB must have Database Mail
 -- profile access, this is normally automatic once a profile exists.)
+-- [Enabled] should be 1 once a profile exists.
 SELECT is_enabled AS [Enabled] FROM msdb.dbo.sysmail_configuration
 WHERE paramname = 'DatabaseMailEnabled';
 GO
@@ -58,6 +70,9 @@ EXEC msdb.dbo.sp_send_dbmail
     @body         = N'If you received this, Database Mail is working.';
 */
 
+-- After sending a test message, [Sent Status] should show 'sent'.
+-- 'unsent' or 'failed' points at the Database Mail external process or
+-- SMTP configuration, not this script.
 SELECT TOP (10)
     mailitem_id AS [Mail Item Id],
     subject AS [Subject],

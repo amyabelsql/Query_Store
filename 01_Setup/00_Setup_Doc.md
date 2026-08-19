@@ -1,10 +1,14 @@
-# 01 - Setup
+# Setup
 
-Run in order:
+Query Store is configured on the database level, not the instance level. Storage, thresholds, and every setting below apply only to the database you target, other databases on the same instance are unaffected. If the database is in an Availability Group, run these scripts on the primary replica.
 
-1. [01_Prerequisites.sql](01_Prerequisites.sql) - instance-level checks (version, Availability Group membership, trace flags)
-2. [02_Turn_On.sql](02_Turn_On.sql) - turns Query Store on for `@DatabaseName`, using SQL Server's own default thresholds
-3. [03_Configure.sql](03_Configure.sql) - replaces those defaults with this repo's demo thresholds on the same database
+## Run These In Order
+
+| Step | What it does                                                                  |
+|---|-------------------------------------------------------------------------------|
+| [01_Prerequisites.sql](01_Prerequisites.sql) | Instance-level checks (version, Availability Group membership, trace flags)   |
+| [02_Turn_On.sql](02_Turn_On.sql) | Turns Query Store on but you still need to configure it in the next step      |
+| [03_Configure.sql](03_Configure.sql) | Replaces those defaults with this repo's demo thresholds on the same database |
 
 `02_Turn_On.sql` and `03_Configure.sql` each start with:
 
@@ -14,24 +18,25 @@ DECLARE @DatabaseName SYSNAME = N'AdventureWorks2022';
 
 Change that value, then run the script. `01_Prerequisites.sql` is instance-wide and needs no parameter.
 
-## What 03_Configure.sql changes
+## What Each Setting Controls
 
-| Setting | Demo value | Production default | Why the demo differs |
+| Setting | What it controls | Possible values | This repo sets |
 |---|---|---|---|
-| `INTERVAL_LENGTH_MINUTES` | 15 | 60 | Shorter intervals so query stats show up faster while you're working through the demo |
-| `DATA_FLUSH_INTERVAL_SECONDS` | 60 | 900 | Flushes to disk more often so recent activity is visible sooner |
-| `MAX_STORAGE_SIZE_MB` | 1024 | 100 | Demo workload can fill the default cap quickly |
-| `CLEANUP_POLICY` (`STALE_QUERY_THRESHOLD_DAYS`) | 90 | 30 | Keeps demo history around longer |
-| `QUERY_CAPTURE_MODE` | `ALL` | `AUTO` (2019+) | Captures every query, including one-off/ad hoc ones, instead of only frequent or expensive ones |
-| `MAX_PLANS_PER_QUERY` | 200 | 200 | Same as default |
-| `SIZE_BASED_CLEANUP_MODE` | `AUTO` | `AUTO` | Same as default |
-| `WAIT_STATS_CAPTURE_MODE` | `ON` | `ON` (2017+) | Same as default |
+| `OPERATION_MODE` | Whether Query Store is actively capturing new data, or frozen read-only | `READ_WRITE`, `READ_ONLY` | `READ_WRITE` |
+| `CLEANUP_POLICY` (`STALE_QUERY_THRESHOLD_DAYS`) | How many days since a query last ran before it's considered stale and purged. It's based on last execution, not when it was first captured | Any number of days | 90 |
+| `DATA_FLUSH_INTERVAL_SECONDS` | How often captured data is written from memory to disk. Anything not yet flushed is lost on an unexpected shutdown, and isn't in a backup taken before the flush | Any number of seconds | 60 |
+| `MAX_STORAGE_SIZE_MB` | The storage quota Query Store can use. Once it hits this limit, Query Store switches to `READ_ONLY` and stops capturing new data, unless `SIZE_BASED_CLEANUP_MODE` is `AUTO` and can free up space first | Any number of MB | 1024 |
+| `INTERVAL_LENGTH_MINUTES` | How long each runtime-stats time bucket stays open before a new one starts | 1, 5, 10, 15, 30, 60, or 1440 | 15 |
+| `SIZE_BASED_CLEANUP_MODE` | What happens as storage nears the quota | `AUTO` (purges old data automatically to make room), `OFF` (lets it go `READ_ONLY` instead) | `AUTO` |
+| `QUERY_CAPTURE_MODE` | Which queries get captured | `ALL` (everything), `AUTO` (skips one-off, low-cost queries), `NONE`, `CUSTOM` (2019+, your own thresholds) | `AUTO` |
+| `MAX_PLANS_PER_QUERY` | The most distinct plans Query Store tracks per query | Any number, 0 = unlimited | 200 |
+| `WAIT_STATS_CAPTURE_MODE` | Whether wait statistics (why a query was slow, not just how slow) are captured too | `ON`, `OFF` (2017+ only) | `ON` |
 
-[06_Maintenance_And_Best_Practices](../06_Maintenance_And_Best_Practices/) resets these to the production-default column at the end of the demo.
+ [Best-Practices](../10_Best_Practices/) with cover some best practices to start with.
 
-## Watch for this
+## Watch For This
 
-If `actual_state_desc` doesn't match `desired_state_desc`, Query Store changed mode on its own, usually because space pressure pushed it to `READ_ONLY`.
+If `actual_state_desc` doesn't match `desired_state_desc`, Query Store changed mode on its own. Usually space pressure pushed it to `READ_ONLY`.
 
 Continue with [02_Generate_Workload](../02_Generate_Workload/).
 

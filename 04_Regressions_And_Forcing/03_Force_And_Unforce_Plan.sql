@@ -1,7 +1,17 @@
 /*
-    Fixes the regression created in 02_Find_Regressed_Queries.sql by
-    forcing the faster (index seek) plan back on, then shows what
-    happens when a forced plan can no longer be used.
+    Do NOT just run this whole script at once. Steps 1-2 run as is, but
+    step 2's output tells you which <query_id>/<plan_id> to type into
+    steps 3, 5, and 6 before running them. The commented-out bonus block
+    at the bottom is separate, read it before running it.
+
+    1. Restores both supporting indexes so the good plan is achievable
+    2. Lists query_id and available plan_ids, pick the plan_id with the
+       lower avg_logical_io_reads (the index seek plan)
+    3. Forces that plan (edit the placeholders first)
+    4. Confirms it's forced
+    5. Runs the query again to show the forced plan being used
+    6. Unforces the plan when you're done (edit the placeholders first)
+
     Run 02_Find_Regressed_Queries.sql first.
 */
 
@@ -20,7 +30,9 @@ GO
 ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail REBUILD;
 GO
 
--- Lists the query_id and available plan_ids from 02_Find_Regressed_Queries.sql
+-- Lists the query_id and available plan_ids from 02_Find_Regressed_Queries.sql.
+-- Pick the [Plan Id] with the lower [Avg Logical IO Reads], that's the
+-- index seek plan you want to force.
 SELECT
     q.query_id AS [Query Id],
     p.plan_id AS [Plan Id],
@@ -42,7 +54,8 @@ GO
 EXEC sys.sp_query_store_force_plan @query_id = <query_id>, @plan_id = <plan_id>;
 GO
 
--- Confirms it's forced
+-- Confirms it's forced. [Forced] should be 1 for the [Plan Id] you
+-- just forced, and no other row for the same [Query Id] should show 1.
 SELECT
     query_id AS [Query Id],
     plan_id AS [Plan Id],

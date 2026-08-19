@@ -1,6 +1,6 @@
 # 09 - Query Store on Secondary Replicas (SQL Server 2025)
 
-**This folder is different from everything before it.** Folders 00-08 run
+**This folder is different from every other folder in this repo.** The rest run
 against a single default instance. This one requires an **Always On
 availability group (AG) with at least one readable secondary**. There's
 no way to demo it on one lone instance. If you don't have an AG handy,
@@ -10,6 +10,23 @@ read this folder for the concepts and come back to run it once you do.
 (SQL Server 2025, Azure SQL Database, Azure SQL Managed Instance) as of
 this writing. Treat it as evaluate-and-learn, not something to lean on
 for production alerting yet.
+
+## Scripts
+
+| Step | What it does |
+|---|---|
+| [01_Enable_On_Secondary.sql](01_Enable_On_Secondary.sql) | Enables Query Store `FOR SECONDARY` from the primary. On SQL Server 2022 only, also run its Step 0 to enable trace flag `12606` first (see Setup below) |
+| [02_Cross_Replica_Queries.sql](02_Cross_Replica_Queries.sql) | Queries `sys.query_store_replicas` and shows plan forcing for a specific replica |
+
+## What each query shows you
+
+| Query | Shows | Look for |
+|---|---|---|
+| 01 | Confirms capture is on, printed at the end for you to run against the secondary | `Actual State` should read `READ_CAPTURE_SECONDARY` on the secondary, not `READ_ONLY` |
+| 02, query 1 | The replica set and what role each replica has been seen in | If only `Role Type` 1 (Primary) shows up, the secondary hasn't captured anything yet, run a read workload against it first |
+| 02, query 2 | Streaming health for the primary-secondary data channel | Rising `Pending Message Count` under load points at backpressure on the shared HADR transport |
+| 02, query 3 | Top 50 queries by CPU across all replicas, broken out by role | Rows with `Replica Type` = `SECONDARY` confirm secondary capture is actually working |
+| 02, query 4 | What's currently forced, and on which replica | Empty means nothing is forced yet, expect one row per `Replica Group Id` after forcing a plan |
 
 ## What it is
 
@@ -133,7 +150,7 @@ instance is actually 2022.
   temporary local placeholder) and never get promoted to a real,
   positive ID if it never crosses the primary's configured capture
   thresholds (same `AUTO`-mode filtering behavior covered in
-  [01_Setup](../01_Setup/) and [06_Maintenance_And_Best_Practices](../06_Maintenance_And_Best_Practices/)). Don't
+  [01_Setup](../01_Setup/) and [10_Best_Practices](../10_Best_Practices/)). Don't
   read a negative ID as a bug, it's an in-flight query waiting on the
   primary's capture decision.
 - **Plan forcing must be issued from the primary**, even though the

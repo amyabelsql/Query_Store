@@ -1,12 +1,16 @@
-# 02 - Generate Workload
+# Generate Workload
 
-Query Store has nothing to show until queries actually run. 
+Creates the Query Store data to use for the rest of this repo.
 
-Run [01_Generate_Workload.sql](01_Generate_Workload.sql) to create two
-stored procedures and call them repeatedly, plus a batch of ad hoc,
-non-parameterized queries that show how query-text bloat happens.
+## Steps
 
-Wait about a minute after running it for the first interval to flush,
-then move on.
+Run both scripts against AdventureWorks2022, in order.
 
-Continue with [03_Explore_Catalog_Views](../03_Explore_Catalog_Views/).
+| Step | What it does |
+|---|---|
+| [01_Generate_Workload.sql](01_Generate_Workload.sql) | Creates two stored procedures and calls them repeatedly, plus 8 distinct ad hoc queries run 6 times each, to show query-text bloat |
+| [02_Generate_Exception_Query.sql](02_Generate_Exception_Query.sql) | Creates a real divide-by-zero error, fully automatic, no manual step, no special settings |
+
+Wait about 15 minutes for the first Query Store interval to flush (the interval length is set in `01_Setup/03_Configure.sql`), then continue.
+
+Continue with [03_Catalog_Views](../03_Catalog_Views/).

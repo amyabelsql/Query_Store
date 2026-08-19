@@ -1,15 +1,28 @@
 /*
-    Uses Query Store to answer "what's slow and why": find a query by
-    text, rank resource consumers, spot regressions and plan instability,
-    and break down wait time by category. Run
-    01_Query_Store_Health_Checks.sql first to confirm Query Store itself
-    is healthy and has recent data.
-    Companion to 03_Explore_Catalog_Views/00_Explore_Catalog_Views_Doc.md
-    and 04_Find_And_Fix_Regressions/00_Find_And_Fix_Regressions_Doc.md.
+    Run the section that matches your alert, not necessarily the whole
+    file, see 00_Troubleshooting_Doc.md for which section to use.
+    Each section is its own GO batch with its own @LookbackHours and
+    other parameters, edit the value in the section you're running, not
+    just the first one. Section 6 needs a @WaitCategory value you get by
+    reading section 5's output first.
 
-    Each query below is its own GO batch, so @LookbackHours and other
-    parameters are redeclared at the top of every section. Edit the
-    value in the section you're running, not just the first one.
+    1. Finds a query by text
+    2. Top resource consumers in the lookback window
+    3. Queries with high variation (unstable performance, a parameter
+       sniffing candidate)
+    4. Regressed queries, most recent interval vs. the one before it
+    5. Wait time by category in the lookback window
+    6. Top queries within the dominant wait category (edit
+       @WaitCategory using section 5's result first)
+
+    Run 01_Query_Store_Health_Checks.sql first to confirm Query Store
+    itself is healthy and has recent data. Companion to
+    03_Catalog_Views/00_Catalog_Views_Doc.md and
+    04_Regressions_And_Forcing/00_Regressions_And_Forcing_Doc.md.
+
+    Nothing here filters out DDL (CREATE INDEX, ALTER DATABASE, and the
+    like). That's intentional, a runaway index build or schema change is
+    a legitimate top resource consumer in real production data.
 */
 
 USE [AdventureWorks2022];
@@ -31,7 +44,10 @@ ORDER BY q.last_execution_time DESC;
 GO
 
 -- Top resource consumers in the lookback window. Same signal as the
--- SSMS "Top Resource Consuming Queries" report.
+-- SSMS "Top Resource Consuming Queries" report. The query at the top
+-- of [Total Duration MS] is generally the best overall target, cross
+-- check [Total CPU MS] and [Total Logical IO Reads] to see which
+-- resource is actually driving the cost.
 DECLARE @LookbackHours INT = 24;
 
 SELECT TOP (25)
@@ -119,7 +135,7 @@ GO
 -- Wait time by category in the lookback window. Requires
 -- WAIT_STATS_CAPTURE_MODE = ON (default in SQL Server 2022). See the
 -- wait-category-to-action table in
--- 04_Find_And_Fix_Regressions/00_Find_And_Fix_Regressions_Doc.md.
+-- 04_Regressions_And_Forcing/00_Regressions_And_Forcing_Doc.md.
 DECLARE @LookbackHours INT = 24;
 
 SELECT
@@ -134,7 +150,9 @@ ORDER BY [Total Wait Time MS] DESC;
 GO
 
 -- Top queries within the dominant wait category. Swap in the
--- wait_category_desc value with the highest total from the section above.
+-- wait_category_desc value with the highest total from the section
+-- above. The query at the top of [Total Wait Time MS] is contributing
+-- the most to that wait category, and is your best target for it.
 DECLARE @LookbackHours INT = 24;
 DECLARE @WaitCategory NVARCHAR(60) = N'Buffer IO';
 
