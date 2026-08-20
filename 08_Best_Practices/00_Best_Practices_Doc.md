@@ -1,11 +1,11 @@
-# 10 - Best Practices
+# 08 - Best Practices
 
-Proactive guidance for running Query Store well, before anything breaks. For what to do once something's already wrong, see [07_Troubleshooting](../07_Troubleshooting/).
+Proactive guidance for running Query Store well, before anything breaks. For what to do once something's already wrong, see [03_Troubleshooting](../03_Troubleshooting/).
 
 ## Before you turn it on
 
 - Check available disk space against your planned `MAX_STORAGE_SIZE_MB`, plus headroom. A heavy ad hoc workload burns through quota faster than a parameterized one, size for what you actually have, not the demo default.
-- If you already have a sense of the workload's ad hoc ratio, use it to estimate quota needs before turning Query Store on for the first time. `03_Catalog_Views`' plan-count query shows you how to measure this once it's running, use the same judgment qualitatively beforehand, lots of dynamic SQL or ORM-generated queries means more bloat.
+- If you already have a sense of the workload's ad hoc ratio, use it to estimate quota needs before turning Query Store on for the first time. `03_Troubleshooting`' plan-count query shows you how to measure this once it's running, use the same judgment qualitatively beforehand, lots of dynamic SQL or ORM-generated queries means more bloat.
 - Start with `QUERY_CAPTURE_MODE = AUTO`, the production default, not `ALL`, on any database you don't already know intimately. `ALL` captures every one-off ad hoc query too, and can fill the quota before you've learned what your normal baseline even looks like.
 - Confirm version, edition, and Availability Group membership first with `01_Setup/01_Prerequisites.sql`, trace flag guidance and wait-stats availability both depend on it.
 
@@ -32,12 +32,12 @@ If you manage more than a handful of databases, don't turn Query Store on everyw
 
 ## Monitoring and thresholds
 
-`08_Monitoring` ships working defaults (`@WarningPercent` = 80, `@RegressionThresholdPct` = 50, `@DurationThresholdMs` = 5000). Before relying on them in production:
+`06_Monitoring` ships working defaults (`@WarningPercent` = 80, `@RegressionThresholdPct` = 50, `@DurationThresholdMs` = 5000). Before relying on them in production:
 
-- Run the checks manually against your real workload first, `08_Monitoring`'s "Trigger an alert manually" section, to see what a normal day actually looks like. Set thresholds relative to that baseline, not the out-of-box defaults blindly.
+- Run the checks manually against your real workload first, `06_Monitoring`'s "Trigger an alert manually" section, to see what a normal day actually looks like. Set thresholds relative to that baseline, not the out-of-box defaults blindly.
 - Start conservative, higher thresholds and fewer alerts, then tighten over time. An alert that fires constantly gets ignored, which defeats the point of alerting at all.
 - `@RegressionThresholdPct = 50` means 50% slower than the last interval. For a 5-ms query that's noise. For a 5-second query it's real. Decide whether one global threshold fits your workload, or whether your genuinely critical queries need their own, tighter check.
-- Forced plan failures and forced plan changes (`08_Monitoring`) are rare by nature and cheap to check often. Resource and regression checks are the ones worth tuning cadence and thresholds on carefully.
+- Forced plan failures and forced plan changes (`06_Monitoring`) are rare by nature and cheap to check often. Resource and regression checks are the ones worth tuning cadence and thresholds on carefully.
 
 ## Best-practice checklist
 
@@ -58,8 +58,8 @@ General guidance for running Query Store well day to day.
 | Folder | Why |
 |---|---|
 | [01_Setup](../01_Setup/) | Prerequisites, turning it on, and what each setting does |
-| [08_Monitoring](../08_Monitoring/) | The actual alerting scripts these thresholds apply to |
-| [07_Troubleshooting](../07_Troubleshooting/) | What to do once something's already wrong |
+| [06_Monitoring](../06_Monitoring/) | The actual alerting scripts these thresholds apply to |
+| [03_Troubleshooting](../03_Troubleshooting/) | What to do once something's already wrong |
 
 ## Sources
 

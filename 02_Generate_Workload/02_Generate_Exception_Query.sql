@@ -4,7 +4,7 @@
 
     1. Creates a procedure that raises a genuine divide-by-zero error
     2. Runs it 3 times, so Query Store has a real Exception execution
-       to show, see 07_Troubleshooting/01_Query_Store_Health_Checks.sql
+       to show, see 03_Troubleshooting/01_Health_Checks.sql
        sections 7-8 to check for it
 
     Run 01_Setup/02_Turn_On.sql and 01_Setup/03_Configure.sql first.

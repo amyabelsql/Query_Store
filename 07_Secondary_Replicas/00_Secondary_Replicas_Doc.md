@@ -1,4 +1,4 @@
-# 09 - Query Store on Secondary Replicas (SQL Server 2025)
+# 07 - Query Store on Secondary Replicas (SQL Server 2025)
 
 **This folder is different from every other folder in this repo.** The rest run
 against a single default instance. This one requires an **Always On
@@ -150,7 +150,7 @@ instance is actually 2022.
   temporary local placeholder) and never get promoted to a real,
   positive ID if it never crosses the primary's configured capture
   thresholds (same `AUTO`-mode filtering behavior covered in
-  [01_Setup](../01_Setup/) and [10_Best_Practices](../10_Best_Practices/)). Don't
+  [01_Setup](../01_Setup/) and [08_Best_Practices](../08_Best_Practices/)). Don't
   read a negative ID as a bug, it's an in-flight query waiting on the
   primary's capture decision.
 - **Plan forcing must be issued from the primary**, even though the

@@ -1,4 +1,4 @@
-# 08 - Monitoring
+# 06 - Monitoring
 
 Sets up Query Store alerts for space/state, regressed queries, performance thresholds, forced plan failures, and forced plan changes.
 
@@ -62,7 +62,7 @@ EXEC msdb.dbo.usp_QS_CheckForcedPlanChanges
     @Recipients = N'dba-team@example.com';
 ```
 
-`usp_QS_CheckForcedPlanFailures` only sends mail if a forced plan has actually failed, force a plan and then drop the index it depends on (see `04_Regressions_And_Forcing/03_Force_And_Unforce_Plan.sql`'s bonus block) to see it fire. `usp_QS_CheckForcedPlanChanges` sends mail on its very first run against a database that has anything forced, since the tracking table starts empty, that's expected, not a bug.
+`usp_QS_CheckForcedPlanFailures` only sends mail if a forced plan has actually failed, force a plan and then drop the index it depends on (see `03_Troubleshooting/08_Simulate_And_Force_A_Regression.sql`'s bonus block) to see it fire. `usp_QS_CheckForcedPlanChanges` sends mail on its very first run against a database that has anything forced, since the tracking table starts empty, that's expected, not a bug.
 
 Or start the job directly:
 
@@ -80,17 +80,16 @@ The low thresholds above (`@WarningPercent`, `@DurationThresholdMs`, `@CpuThresh
 
 | Alert | Next stop | Common fix |
 |---|---|---|
-| Space / state | [07_Troubleshooting](../07_Troubleshooting/) health checks | Clean up old data, increase quota, reduce ad hoc capture |
-| Regressed query | [04_Regressions_And_Forcing](../04_Regressions_And_Forcing/) or the runbook regression query | Force the last good plan, then fix index or stats issues |
+| Space / state | [03_Troubleshooting](../03_Troubleshooting/) health checks | Clean up old data, increase quota, reduce ad hoc capture |
+| Regressed query | [03_Troubleshooting](../03_Troubleshooting/) or the runbook regression query | Force the last good plan, then fix index or stats issues |
 | Performance threshold | Runbook top queries and wait stats | Tune the hot query, reduce locking, or fix IO/memory pressure |
-| Forced plan failure | [07_Troubleshooting](../07_Troubleshooting/) health checks, section 6 | Re-evaluate the plan, the schema likely changed underneath it, may need to unforce and force a fresh one |
-| Forced plan change | [04_Regressions_And_Forcing/03_Force_And_Unforce_Plan.sql](../04_Regressions_And_Forcing/03_Force_And_Unforce_Plan.sql) | Confirm the change was intentional, forced plans are meant to be temporary, not permanent |
+| Forced plan failure | [03_Troubleshooting](../03_Troubleshooting/) health checks, section 6 | Re-evaluate the plan, the schema likely changed underneath it, may need to unforce and force a fresh one |
+| Forced plan change | [03_Troubleshooting/08_Simulate_And_Force_A_Regression.sql](../03_Troubleshooting/08_Simulate_And_Force_A_Regression.sql) | Confirm the change was intentional, forced plans are meant to be temporary, not permanent |
 
 ## Related
 
 | Folder | Why |
 |---|---|
-| [07_Troubleshooting](../07_Troubleshooting/) | Investigate the alert once it fires |
-| [10_Best_Practices](../10_Best_Practices/) | Proactive guidance on choosing these thresholds in the first place |
-| [04_Regressions_And_Forcing](../04_Regressions_And_Forcing/) | Easiest way to show a bad plan and recovery, and how forcing a plan actually works |
-| [06_Maintenance](../06_Maintenance/) | Cleanup actions and their impacts |
+| [03_Troubleshooting](../03_Troubleshooting/) | Investigate the alert once it fires, or run the guided lab to show a bad plan and recovery |
+| [08_Best_Practices](../08_Best_Practices/) | Proactive guidance on choosing these thresholds in the first place |
+| [05_Maintenance](../05_Maintenance/) | Cleanup actions and their impacts |

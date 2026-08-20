@@ -58,7 +58,7 @@ GO
 
 -- Optional: lets automatic tuning force the last-known-good plan on
 -- secondaries too, not just the primary. Requires Enterprise Edition
--- (SQL Server 2017+), fails on Standard, see 05_Version_Dependencies.
+-- (SQL Server 2017+), fails on Standard, see 04_Version_Dependencies.
 ALTER DATABASE [AdventureWorks2022]
     FOR SECONDARY
     SET AUTOMATIC_TUNING (FORCE_LAST_GOOD_PLAN = ON);

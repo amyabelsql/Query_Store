@@ -8,9 +8,7 @@
        to show query-text bloat
     4. Prints when to come back and check Query Store
 
-    Run 01_Setup/02_Turn_On.sql and 01_Setup/03_Configure.sql first.
-    Run 02_Generate_Exception_Query.sql separately for an Exception
-    execution, not part of this script.
+    Requires Query Store to be enabled.
 */
 
 USE [AdventureWorks2022];
@@ -70,7 +68,7 @@ GO
 -- This is the pattern that bloats Query Store and the plan cache.
 -- Each one runs 6 times (not once) so QUERY_CAPTURE_MODE = AUTO actually captures it, a query
 -- that only runs once usually doesn't clear AUTO's capture bar.
--- See 04_Regressions_And_Forcing.
+
 DECLARE @sql NVARCHAR(500), @j INT = 1, @k INT;
 WHILE @j <= 8
 BEGIN
@@ -85,4 +83,4 @@ BEGIN
 END
 GO
 
-PRINT 'Workload generated. Wait about 15 minutes, the Query Store interval set in 01_Setup/03_Configure.sql, for the first interval to flush, then run 03_Catalog_Views/01_Catalog_Views.sql.';
+PRINT 'Workload generated. Wait about 15 minutes, the Query Store interval set in 01_Setup/03_Configure.sql, for the first interval to flush, then run the scripts in 03_Troubleshooting.';

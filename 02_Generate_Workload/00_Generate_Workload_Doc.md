@@ -13,4 +13,4 @@ Run both scripts against AdventureWorks2022, in order.
 
 Wait about 15 minutes for the first Query Store interval to flush (the interval length is set in `01_Setup/03_Configure.sql`), then continue.
 
-Continue with [03_Catalog_Views](../03_Catalog_Views/).
+Continue with [03_Troubleshooting](../03_Troubleshooting/).

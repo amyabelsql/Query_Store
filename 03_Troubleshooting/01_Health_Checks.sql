@@ -1,11 +1,5 @@
 /*
-    Run this whole script once, top to bottom (e.g. F5 in SSMS). All
-    queries are read-only. The commented-out block at the bottom is an
-    optional fix, only run it manually if a query above shows an
-    `ERROR` state. Run this before
-    02_Performance_Troubleshooting_Queries.sql, a Query Store that's
-    gone READ_ONLY or ERROR gives misleading or stale answers to
-    everything downstream.
+    Read-only. Run the whole script.
 
     1. Current state vs. desired state
     2. Decodes readonly_reason into plain text
@@ -16,8 +10,9 @@
     7. Execution counts by type (Regular / Aborted / Exception) per query
     8. Just the Aborted and Exception executions, with interval detail
 
-    Companion to 01_Setup/00_Setup_Doc.md and this folder's
-    00_Troubleshooting_Doc.md.
+    Run this first, every other script here assumes Query Store is
+    healthy. If query 1 shows actual_state_desc = 'ERROR', run
+    11_Recover_From_Error_State.sql to fix it.
 */
 
 USE [AdventureWorks2022];
@@ -55,7 +50,7 @@ FROM sys.database_query_store_options;
 GO
 
 -- Storage headroom, an alert threshold candidate for monitoring (used
--- as-is by 08_Monitoring/02_Monitoring_Procedures.sql).
+-- as-is by 06_Monitoring/02_Monitoring_Procedures.sql).
 -- [Pct Of Quota Used] climbing toward 100 means Query Store is close
 -- to forcing itself into READ_ONLY or starting size-based cleanup.
 SELECT
@@ -72,17 +67,18 @@ GO
 -- still slipping through.
 SELECT
     query_capture_mode_desc AS [Query Capture Mode],
-    query_capture_policy_execution_count AS [Capture Policy Execution Count],
-    query_capture_policy_total_compile_cpu_time_ms AS [Capture Policy Compile CPU MS],
-    query_capture_policy_total_execution_cpu_time_ms AS [Capture Policy Execution CPU MS],
-    query_capture_policy_stale_threshold_hours AS [Capture Policy Stale Threshold Hours]
+    capture_policy_execution_count AS [Capture Policy Execution Count],
+    capture_policy_total_compile_cpu_time_ms AS [Capture Policy Compile CPU MS],
+    capture_policy_total_execution_cpu_time_ms AS [Capture Policy Execution CPU MS],
+    capture_policy_stale_threshold_hours AS [Capture Policy Stale Threshold Hours]
 FROM sys.database_query_store_options;
 GO
 
 -- Ad hoc / unique-query pressure. A ratio near 1.0 means most captured
 -- queries are unique text (ad hoc), which bloats Query Store and pushes
 -- it toward its quota faster than a parameterized workload would. See
--- 04_Regressions_And_Forcing.
+-- 02_Catalog_Views_Reference.sql for the same pressure broken out per
+-- query shape.
 SELECT
     COUNT(*) AS [Total Queries],
     COUNT(DISTINCT query_hash) AS [Distinct Query Hashes],
@@ -148,10 +144,3 @@ JOIN sys.query_store_runtime_stats_interval AS rsi ON rs.runtime_stats_interval_
 WHERE rs.execution_type_desc <> 'Regular'
 ORDER BY rsi.start_time DESC;
 GO
-
--- Recovering from an ERROR state (SQL Server 2017+). Uncomment and run
--- manually if actual_state_desc = 'ERROR'.
--- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE = OFF;
--- EXEC sp_query_store_consistency_check;
--- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE = ON;
--- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE (OPERATION_MODE = READ_WRITE);

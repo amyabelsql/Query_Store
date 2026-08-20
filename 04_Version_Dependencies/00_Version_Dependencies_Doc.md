@@ -1,4 +1,4 @@
-# 05 - Version Dependencies
+# 04 - Version Dependencies
 
 Query Store behavior, permissions, and available features all differ by SQL Server version. This is the one place that collects every version gate mentioned elsewhere in this repo, plus a hands-on lab for the newest capabilities, the Intelligent Query Processing features SQL Server 2022 built on top of Query Store.
 
@@ -7,18 +7,18 @@ Query Store behavior, permissions, and available features all differ by SQL Serv
 | Minimum version | Feature or behavior | Covered in |
 |---|---|---|
 | 2016 (13.x) | Query Store itself | `01_Setup` |
-| 2017 (14.x) | Wait stats capture (`WAIT_STATS_CAPTURE_MODE`) | `01_Setup`, `10_Best_Practices` |
-| 2017 (14.x) | `sp_query_store_consistency_check`, recovers Query Store from an `ERROR` state | `03_Catalog_Views` |
-| 2017 (14.x), **Enterprise Edition only** | Automatic Plan Correction (`ALTER DATABASE ... SET AUTOMATIC_TUNING (FORCE_LAST_GOOD_PLAN = ON)`), Query Store forces the last good plan for you, `plan_forcing_type_desc = AUTO` marks these plans | `09_Secondary_Replicas` |
+| 2017 (14.x) | Wait stats capture (`WAIT_STATS_CAPTURE_MODE`) | `01_Setup`, `08_Best_Practices` |
+| 2017 (14.x) | `sp_query_store_consistency_check`, recovers Query Store from an `ERROR` state | `03_Troubleshooting` |
+| 2017 (14.x), **Enterprise Edition only** | Automatic Plan Correction (`ALTER DATABASE ... SET AUTOMATIC_TUNING (FORCE_LAST_GOOD_PLAN = ON)`), Query Store forces the last good plan for you, `plan_forcing_type_desc = AUTO` marks these plans | `07_Secondary_Replicas` |
 | 2016-2017 only | Trace flag `7752` has any effect, 2019+ loads Query Store asynchronously automatically | `01_Setup` |
-| 2019 (15.x) | `QUERY_CAPTURE_MODE = CUSTOM`, your own capture thresholds | `01_Setup`, `07_Troubleshooting` |
-| 2019 (15.x)+ / Azure SQL Database | Plan forcing supports static and fast-forward cursors | `07_Troubleshooting` |
-| 2022 (16.x) | `VIEW DATABASE PERFORMANCE STATE` permission required (older versions use `VIEW DATABASE STATE`) | `03_Catalog_Views` |
+| 2019 (15.x) | `QUERY_CAPTURE_MODE = CUSTOM`, your own capture thresholds | `01_Setup`, `03_Troubleshooting` |
+| 2019 (15.x)+ / Azure SQL Database | Plan forcing supports static and fast-forward cursors | `03_Troubleshooting` |
+| 2022 (16.x) | `VIEW DATABASE PERFORMANCE STATE` permission required (older versions use `VIEW DATABASE STATE`) | `03_Troubleshooting` |
 | 2022 (16.x) | Query Store hints (`sp_query_store_set_hints`, `sp_query_store_clear_hints`) | This folder |
 | 2022 (16.x) | Optimized plan forcing, on by default for new or upgraded databases | This folder |
 | 2022 (16.x) | Parameter Sensitive Plan optimization, requires compatibility level 160 | This folder |
 | 2022 (16.x) | Query Store on by default (`READ_WRITE`) for new databases | `01_Setup` |
-| 2025 (17.x) | Query Store for secondary replicas (limited, unsupported preview on 2022 via trace flag `12606`) | `09_Secondary_Replicas` |
+| 2025 (17.x) | Query Store for secondary replicas (limited, unsupported preview on 2022 via trace flag `12606`) | `07_Secondary_Replicas` |
 
 ## SQL Server 2022 features built on Query Store
 
@@ -90,7 +90,7 @@ WHERE p.has_compile_replay_script = 1;
 
 For queries where a single cached plan performs badly across skewed parameter values (the classic "parameter sniffing" problem), SQL Server 2022 can maintain **multiple** active plans per query, chosen per parameter value at runtime. Requires database compatibility level **160**. No configuration is needed beyond that, Query Store then tracks and can force any of the resulting plan variants like any other plan.
 
-Continue with [06_Maintenance](../06_Maintenance/).
+Continue with [05_Maintenance](../05_Maintenance/).
 
 ## Sources
 

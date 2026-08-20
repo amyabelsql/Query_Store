@@ -1,17 +1,17 @@
 /*
     Run this whole script once, top to bottom (e.g. F5 in SSMS). The
-    commented-out blocks (CLEAR, reset_exec_stats, ERROR recovery,
-    dropping demo objects) are optional extras, read them before
-    uncommenting and running any of them separately.
+    commented-out blocks (CLEAR, reset_exec_stats, dropping demo
+    objects) are optional extras, read them before uncommenting and
+    running any of them separately.
 
     1. Shows current Query Store size and state
     2. Raises the storage quota, in case it was READ_ONLY on space
     3. Forces read/write mode back on explicitly
     4. Purges ad hoc/internal queries idle for more than 5 minutes
     5. Resets thresholds set in 01_Setup/03_Configure.sql back to
-       best-practice values (see 10_Best_Practices)
+       best-practice values (see 08_Best_Practices)
     6. Re-enables AdventureWorks2022's native index if
-       04_Regressions_And_Forcing left it disabled
+       03_Troubleshooting left it disabled
 
     Run this when you're done working through this repo.
 */
@@ -78,13 +78,10 @@ GO
 -- Resets runtime stats for a single plan without deleting it
 -- EXEC sp_query_store_reset_exec_stats @plan_id = <plan_id>;
 
--- Recovers from an ERROR state (SQL Server 2017+)
--- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE = OFF;
--- EXEC sp_query_store_consistency_check;
--- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE = ON;
--- ALTER DATABASE [AdventureWorks2022] SET QUERY_STORE (OPERATION_MODE = READ_WRITE);
+-- Recovering from an ERROR state? See
+-- 03_Troubleshooting/11_Recover_From_Error_State.sql.
 
--- Resets thresholds to best-practice values (see 10_Best_Practices)
+-- Resets thresholds to best-practice values (see 08_Best_Practices)
 ALTER DATABASE [AdventureWorks2022]
 SET QUERY_STORE
 (
@@ -94,7 +91,7 @@ SET QUERY_STORE
 );
 GO
 
--- If 04_Regressions_And_Forcing was run but 03_Force_And_Unforce_Plan.sql
+-- If 03_Troubleshooting was run but 03_Force_And_Unforce_Plan.sql
 -- (the fix step) wasn't, AdventureWorks2022's native
 -- IX_SalesOrderDetail_ProductID index may still be disabled. Re-enables
 -- it unconditionally so cleanup doesn't leave the sample database worse
