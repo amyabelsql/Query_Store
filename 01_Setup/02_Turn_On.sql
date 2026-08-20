@@ -14,21 +14,21 @@
 USE master;
 GO
 
-DECLARE @ApplyToAllDatabases BIT = 1; -- 0 = one DB, 1 = all eligible user DBs
+DECLARE @ApplyToAllDatabases BIT = 0; -- 0 = one DB, 1 = all eligible user DBs
 DECLARE @DatabaseName SYSNAME = N'AdventureWorks2022'; -- used when @ApplyToAllDatabases = 0
 DECLARE @Sql NVARCHAR(MAX);
 DECLARE @CurrentDatabase SYSNAME;
-DECLARE @i INT = 1;
-DECLARE @n INT;
-
-DECLARE @Targets TABLE
-(
-    RowNum INT IDENTITY(1,1) PRIMARY KEY,
-    DatabaseName SYSNAME NOT NULL
-);
 
 IF OBJECT_ID(N'tempdb..#Results', N'U') IS NOT NULL
     DROP TABLE #Results;
+
+IF OBJECT_ID(N'tempdb..#Targets', N'U') IS NOT NULL
+    DROP TABLE #Targets;
+
+CREATE TABLE #Targets
+(
+    DatabaseName SYSNAME NOT NULL PRIMARY KEY
+);
 
 CREATE TABLE #Results
 (
@@ -41,7 +41,7 @@ CREATE TABLE #Results
 
 IF @ApplyToAllDatabases = 1
 BEGIN
-    INSERT @Targets (DatabaseName)
+    INSERT #Targets (DatabaseName)
     SELECT d.name
     FROM sys.databases AS d
     WHERE d.database_id > 4               -- user databases only
@@ -54,7 +54,7 @@ BEGIN
     IF DB_ID(@DatabaseName) IS NULL
         THROW 50001, 'Database in @DatabaseName does not exist.', 1;
 
-    INSERT @Targets (DatabaseName)
+    INSERT #Targets (DatabaseName)
     SELECT d.name
     FROM sys.databases AS d
     WHERE d.name = @DatabaseName
@@ -64,17 +64,18 @@ BEGIN
       AND d.source_database_id IS NULL;
 END;
 
-IF NOT EXISTS (SELECT 1 FROM @Targets)
+IF NOT EXISTS (SELECT 1 FROM #Targets)
     THROW 50002, 'No eligible databases found to configure Query Store.', 1;
 
-SELECT @n = COUNT(*) FROM @Targets;
-
 -- Turns Query Store on in READ_WRITE mode per target database
-WHILE @i <= @n
+WHILE EXISTS (SELECT 1 FROM #Targets)
 BEGIN
-    SELECT @CurrentDatabase = t.DatabaseName
-    FROM @Targets AS t
-    WHERE t.RowNum = @i;
+    SELECT TOP (1) @CurrentDatabase = t.DatabaseName
+    FROM #Targets AS t
+    ORDER BY t.DatabaseName;
+
+    DELETE FROM #Targets
+    WHERE DatabaseName = @CurrentDatabase;
 
     BEGIN TRY
         SET @Sql = N'ALTER DATABASE ' + QUOTENAME(@CurrentDatabase) + N' SET QUERY_STORE = ON (OPERATION_MODE = READ_WRITE);';
@@ -104,8 +105,6 @@ FROM sys.database_query_store_options;';
             ERROR_MESSAGE()
         );
     END CATCH;
-
-    SET @i += 1;
 END;
 
 -- Confirmation for each targeted database
