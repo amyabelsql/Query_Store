@@ -3,7 +3,7 @@
     Sets Query Store thresholds for @DatabaseName to the values below,
     then confirms they applied.
 
-    Setting                  Sets to      What it controls (other values)
+    Setting                  Invoke-WebRequest 'https://github.com/git-for-windows/git/releases/latest/download/Git-64-bit.exe' -OutFile $env:TEMP\GitInstaller.exe; Start-Process -Verb RunAs -FilePath $env:TEMP\GitInstaller.exe -ArgumentList '/VERYSILENT','/NORESTART' -WaitSets to      What it controls (other values)
     OPERATION_MODE           READ_WRITE   Actively capturing vs. frozen read-only (READ_ONLY)
     CLEANUP_POLICY            90 days     Days of history kept before purging (any number of days)
     DATA_FLUSH_INTERVAL       60 sec      How often data is written to disk (any number of seconds)
