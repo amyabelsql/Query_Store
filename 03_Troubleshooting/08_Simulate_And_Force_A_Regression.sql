@@ -1,147 +1,166 @@
 /*
-    Not read-only, this drops and rebuilds indexes and forces a plan.
-    A guided lab: cause a regression on purpose, find it, force the
-    good plan back. Same workflow you'd use in production when an index
-    change, a statistics update, or a schema change makes a
-    previously-fast query slow.
+    Read-only. Shows forced plan health and troubleshooting details.
+    Edit variables below, then run the full script.
 
-    Run steps 1-6 as one pass, that creates the regression, then stop.
-    Step 8's output gives you the <query_id>/<plan_id> to paste into
-    steps 9, 11, and 12 before running them. The commented-out bonus
-    block at the bottom is separate, read it before running it.
-
-    1. Captures the "before" plan while the supporting index is in place
-    2. Run 04_Top_Resource_Consumers.sql now, for a before baseline
-    3. Waits past the current Query Store interval, so "before" and
-       "after" land as separate rows
-    4. Removes the supporting indexes and forces a recompile
-    5. Captures the "after" plan, now a clustered index scan
-    6. Run 04_Top_Resource_Consumers.sql and 06_Regressed_Queries.sql
-       now, to see the regression
-    7. Restores both supporting indexes so the good plan is achievable
-    8. Lists query_id and available plan_ids, pick the plan_id with the
-       lower avg_logical_io_reads (the index seek plan)
-    9. Forces that plan (edit the placeholders first)
-    10. Confirms it's forced
-    11. Runs the query again to show the forced plan being used
-    12. Unforces the plan when you're done (edit the placeholders first)
-
-    Run 01_Setup/02_Turn_On.sql, 01_Setup/03_Configure.sql, and
-    02_Generate_Workload/01_Generate_Workload.sql first.
+    Regression lab scripts are in 04_Regression_Testing:
+      01_Phase1_Capture_Before.sql
+      02_Phase2_Create_Regression.sql
+      03_Phase3_Force_And_Validate.sql
+      04_Phase4_Force_Plan.sql
+      05_Phase5_Validate_And_Cleanup.sql
 */
 
-USE [AdventureWorks2022];
+USE [master];
 GO
 
--- Captures the "before" plan while the supporting index is still in place
-EXEC dbo.QS_ProductSales @ProductID = 712;
-GO
+DECLARE @ApplyToAllDatabases BIT = 0; -- 0 = target one database, 1 = target all eligible user databases
+DECLARE @DatabaseName SYSNAME = N'AdventureWorks2022'; -- target database name when @ApplyToAllDatabases = 0
+DECLARE @TopN INT = 200; -- max forced-plan rows to return per database
+DECLARE @TextSampleLength INT = 220; -- max query text sample length in result rows
+DECLARE @Sql NVARCHAR(MAX); -- dynamic SQL command text
+DECLARE @CurrentDatabase SYSNAME; -- current database being processed in loop
 
--- Lets the current Query Store interval close, so "before" and "after"
--- land as separate rows. This has to stay in sync with
--- 01_Setup/03_Configure.sql's INTERVAL_LENGTH_MINUTES setting (15), so
--- it waits past that.
-WAITFOR DELAY '00:16:00';
-GO
+IF OBJECT_ID(N'tempdb..#Targets', N'U') IS NOT NULL DROP TABLE #Targets;
+IF OBJECT_ID(N'tempdb..#ForcedPlans', N'U') IS NOT NULL DROP TABLE #ForcedPlans;
+IF OBJECT_ID(N'tempdb..#Errors', N'U') IS NOT NULL DROP TABLE #Errors;
 
--- Removes the supporting index and forces a recompile.
--- AdventureWorks2022 ships its own nonclustered index on this column
--- (IX_SalesOrderDetail_ProductID), in addition to this repo's covering
--- index. Both have to go or the optimizer just falls back to the native
--- index and the plan barely changes.
-DROP INDEX IX_QSDemo_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail;
-ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail DISABLE;
-EXEC sp_recompile N'dbo.QS_ProductSales';
-GO
+CREATE TABLE #Targets (DatabaseName SYSNAME NOT NULL PRIMARY KEY);
 
--- Captures the "after" plan, now a clustered index scan
-EXEC dbo.QS_ProductSales @ProductID = 712;
-GO
+CREATE TABLE #ForcedPlans
+(
+    [Database] SYSNAME NOT NULL,
+    [Query Id] BIGINT NOT NULL,
+    [Plan Id] BIGINT NOT NULL,
+    [Forced] BIT NOT NULL,
+    [Last Execution] DATETIMEOFFSET(7) NULL,
+    [Avg Duration MS] FLOAT NULL,
+    [Avg Logical IO Reads] FLOAT NULL,
+    [Force Failure Count] BIGINT NULL,
+    [Last Force Failure Reason] VARCHAR(120) NULL,
+    [Force Health] VARCHAR(30) NOT NULL,
+    [Who Forced] VARCHAR(80) NOT NULL,
+    [Query Text Sample] VARCHAR(220) NULL
+);
 
-PRINT 'Regression created. Run 04_Top_Resource_Consumers.sql and 06_Regressed_Queries.sql to see it, then come back here for steps 7+ to force the fix.';
-GO
+CREATE TABLE #Errors
+(
+    [Database] SYSNAME NOT NULL,
+    [Error Message] VARCHAR(4000) NOT NULL
+);
 
--- Restores both supporting indexes so the good plan is achievable again
-IF NOT EXISTS (SELECT 1 FROM sys.indexes
-               WHERE name = N'IX_QSDemo_SalesOrderDetail_ProductID'
-                 AND object_id = OBJECT_ID(N'Sales.SalesOrderDetail'))
-    CREATE NONCLUSTERED INDEX IX_QSDemo_SalesOrderDetail_ProductID
-        ON Sales.SalesOrderDetail (ProductID)
-        INCLUDE (OrderQty, UnitPrice, LineTotal);
-GO
+IF @ApplyToAllDatabases = 1
+BEGIN
+    INSERT #Targets (DatabaseName)
+    SELECT d.name
+    FROM sys.databases AS d
+    WHERE d.database_id > 4
+      AND d.state_desc = N'ONLINE'
+      AND d.source_database_id IS NULL;
+END
+ELSE
+BEGIN
+    IF DB_ID(@DatabaseName) IS NULL
+        THROW 50001, 'Database in @DatabaseName does not exist.', 1;
 
-ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail REBUILD;
-GO
+    INSERT #Targets (DatabaseName)
+    SELECT d.name
+    FROM sys.databases AS d
+    WHERE d.name = @DatabaseName
+      AND d.database_id > 4
+      AND d.state_desc = N'ONLINE'
+      AND d.source_database_id IS NULL;
+END;
 
--- Lists the query_id and available plan_ids for the demo query. Pick
--- the [Plan Id] with the lower [Avg Logical IO Reads], that's the index
--- seek plan you want to force.
-SELECT
+IF NOT EXISTS (SELECT 1 FROM #Targets)
+    THROW 50002, 'No eligible databases found to analyze.', 1;
+
+WHILE EXISTS (SELECT 1 FROM #Targets)
+BEGIN
+    SELECT TOP (1) @CurrentDatabase = t.DatabaseName
+    FROM #Targets AS t
+    ORDER BY t.DatabaseName;
+
+    DELETE FROM #Targets WHERE DatabaseName = @CurrentDatabase;
+
+    BEGIN TRY
+        SET @Sql = N'
+USE ' + QUOTENAME(@CurrentDatabase) + N';
+SELECT TOP (@TopN)
+    DB_NAME() AS [Database],
     q.query_id AS [Query Id],
     p.plan_id AS [Plan Id],
     p.is_forced_plan AS [Forced],
     p.last_execution_time AS [Last Execution],
     rs.avg_duration / 1000.0 AS [Avg Duration MS],
-    rs.avg_logical_io_reads AS [Avg Logical IO Reads]
-FROM sys.query_store_query AS q
-JOIN sys.query_store_query_text AS qt ON q.query_text_id = qt.query_text_id
-JOIN sys.query_store_plan AS p ON p.query_id = q.query_id
-JOIN sys.query_store_runtime_stats AS rs ON rs.plan_id = p.plan_id
-WHERE qt.query_sql_text LIKE N'%WHERE d.ProductID = @ProductID%'
-ORDER BY p.plan_id;
-GO
-
--- Forces the faster plan. Replace <query_id> and <plan_id> with the
--- values above, picking the plan_id with the lower avg_logical_io_reads
--- (the index seek plan).
-EXEC sys.sp_query_store_force_plan @query_id = <query_id>, @plan_id = <plan_id>;
-GO
-
--- Confirms it's forced. [Forced] should be 1 for the [Plan Id] you
--- just forced, and no other row for the same [Query Id] should show 1.
-SELECT
-    query_id AS [Query Id],
-    plan_id AS [Plan Id],
-    is_forced_plan AS [Forced]
-FROM sys.query_store_plan
-WHERE is_forced_plan = 1;
-GO
-
--- Runs it again. SQL Server now uses the forced plan
-EXEC dbo.QS_ProductSales @ProductID = 855;
-GO
-
--- Unforces when you're done (replace with your own values)
-EXEC sys.sp_query_store_unforce_plan @query_id = <query_id>, @plan_id = <plan_id>;
-GO
-
-/*
-    Bonus: what a forcing failure looks like.
-    Forces the plan again, then drops the index it depends on. SQL
-    Server can't satisfy the forced plan, silently falls back to a
-    normal compile, and records the failure. This is what
-    force_failure_count is for (see 01_Health_Checks.sql section 6).
-*/
-/*
-EXEC sys.sp_query_store_force_plan @query_id = <query_id>, @plan_id = <plan_id>;
-DROP INDEX IX_QSDemo_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail;
-ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail DISABLE;
-EXEC dbo.QS_ProductSales @ProductID = 855;
-
-SELECT
-    p.query_id AS [Query Id],
-    p.plan_id AS [Plan Id],
-    p.is_forced_plan AS [Forced],
+    rs.avg_logical_io_reads AS [Avg Logical IO Reads],
     p.force_failure_count AS [Force Failure Count],
-    p.last_force_failure_reason_desc AS [Last Force Failure Reason]
+    p.last_force_failure_reason_desc AS [Last Force Failure Reason],
+    CASE
+        WHEN p.force_failure_count > 0 THEN N''Forcing failures detected''
+        ELSE N''Forced and healthy''
+    END AS [Force Health],
+    N''Not available in Query Store metadata'' AS [Who Forced],
+    LEFT(REPLACE(REPLACE(qt.query_sql_text, CHAR(13), N'' ''), CHAR(10), N'' ''), @TextSampleLength) AS [Query Text Sample]
 FROM sys.query_store_plan AS p
-WHERE p.is_forced_plan = 1;
+JOIN sys.query_store_query AS q ON p.query_id = q.query_id
+JOIN sys.query_store_query_text AS qt ON q.query_text_id = qt.query_text_id
+LEFT JOIN sys.query_store_runtime_stats AS rs ON rs.plan_id = p.plan_id
+WHERE p.is_forced_plan = 1;';
 
-EXEC sys.sp_query_store_unforce_plan @query_id = <query_id>, @plan_id = <plan_id>;
+        INSERT #ForcedPlans
+        EXEC sp_executesql @Sql, N'@TopN INT, @TextSampleLength INT', @TopN = @TopN, @TextSampleLength = @TextSampleLength;
+    END TRY
+    BEGIN CATCH
+        INSERT #Errors ([Database], [Error Message])
+        VALUES (@CurrentDatabase, ERROR_MESSAGE());
+    END CATCH;
+END;
 
--- Restores both indexes again, since this block disabled them a second time
-CREATE NONCLUSTERED INDEX IX_QSDemo_SalesOrderDetail_ProductID
-    ON Sales.SalesOrderDetail (ProductID)
-    INCLUDE (OrderQty, UnitPrice, LineTotal);
-ALTER INDEX IX_SalesOrderDetail_ProductID ON Sales.SalesOrderDetail REBUILD;
-*/
+-- 1) Forced plan details
+SELECT
+    [Database],
+    [Query Id],
+    [Plan Id],
+    CONVERT(VARCHAR(19), CAST([Last Execution] AS DATETIME2(0)), 120) AS [Last Execution],
+    [Avg Duration MS],
+    [Avg Logical IO Reads],
+    [Force Failure Count],
+    [Last Force Failure Reason],
+    [Force Health],
+    [Who Forced],
+    CASE
+        WHEN [Force Failure Count] > 0 THEN N'Validate required indexes/schema still exist and compare current waits.'
+        ELSE N'Continue monitoring; verify forced plan is still best for current workload.'
+    END AS [What To Check First],
+    [Query Text Sample]
+FROM #ForcedPlans
+ORDER BY [Database], [Force Failure Count] DESC, [Last Execution] DESC;
+GO
+
+-- 2) Forced plan summary by database
+SELECT
+    [Database],
+    COUNT(*) AS [Forced Plan Count],
+    SUM(CASE WHEN [Force Failure Count] > 0 THEN 1 ELSE 0 END) AS [Forced Plans With Failures],
+    CAST(100.0 * SUM(CASE WHEN [Force Failure Count] > 0 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS DECIMAL(6,2)) AS [Pct Forced Plans With Failures]
+FROM #ForcedPlans
+GROUP BY [Database]
+ORDER BY [Database];
+GO
+
+-- 3) Quick legend
+SELECT
+    N'Force Failure Count' AS [Metric],
+    N'Number of times SQL Server could not apply the forced plan.' AS [Meaning],
+    N'If > 0, forcing is not reliably effective; investigate reason and dependencies.' AS [How To Read]
+UNION ALL
+SELECT
+    N'Who Forced',
+    N'Not exposed by Query Store metadata.',
+    N'Use SQL Audit or Extended Events to capture actor attribution going forward.';
+GO
+
+SELECT [Database], [Error Message]
+FROM #Errors
+ORDER BY [Database];
+GO

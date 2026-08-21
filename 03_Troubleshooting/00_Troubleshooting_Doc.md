@@ -18,7 +18,7 @@ Requirements:
 | [05_High_Variation_Queries.sql](05_High_Variation_Queries.sql) | Unstable queries, a parameter sniffing candidate | Queries With High Variation |
 | [06_Regressed_Queries.sql](06_Regressed_Queries.sql) | Queries slower than their prior interval | Regressed Queries |
 | [07_Wait_Statistics_By_Category.sql](07_Wait_Statistics_By_Category.sql) | Wait time by category, then top queries in it | Query Wait Statistics |
-| [08_Simulate_And_Force_A_Regression.sql](08_Simulate_And_Force_A_Regression.sql) | Causes a regression, then forces the fix | - |
+| [08_Simulate_And_Force_A_Regression.sql](08_Simulate_And_Force_A_Regression.sql) | Forced-plan diagnostics (what is forced, failures, what to check) | - |
 | [09_Overall_Resource_Consumption.sql](09_Overall_Resource_Consumption.sql) | Totals across every query, per interval | Overall Resource Consumption |
 | [10_Track_A_Query.sql](10_Track_A_Query.sql) | One query_id's full plan and stats history | Tracked Queries |
 | [11_Recover_From_Error_State.sql](11_Recover_From_Error_State.sql) | Fixes Query Store when it's in an `ERROR` state | - |
@@ -28,7 +28,7 @@ Requirements:
 - If an alert from [06_Monitoring](../06_Monitoring/) already gave you a `query_id`, skip straight to forcing.
 - Run [01_Health_Checks.sql](01_Health_Checks.sql) first, always. 
 - A `READ_ONLY` or `ERROR` Query Store makes everything else misleading. 
-- No live alert to chase? Run [08_Simulate_And_Force_A_Regression.sql](08_Simulate_And_Force_A_Regression.sql) instead, it creates one on purpose so you can practice.
+- No live alert to chase? Use [04_Regression_Testing](../04_Regression_Testing/) to create a practice regression in 3 phases.
 - Forcing a plan is a fast mitigation, not the fix. 
 - Still add or restore the right index, update stale statistics, rewrite the query, or parameterize ad hoc SQL.
 - All scripts default to `AdventureWorks2022`, change the `USE` statement if needed.
@@ -61,11 +61,11 @@ Forcing isn't guaranteed to keep working. `force_failure_count` (health checks s
 | `COMPILATION_ABORTED_BY_CLIENT` | The client cancelled compilation before it finished |
 | `GENERAL_FAILURE` | Anything not covered by a more specific reason above |
 
-`NO_INDEX` is the one worth remembering. [08_Simulate_And_Force_A_Regression.sql](08_Simulate_And_Force_A_Regression.sql)'s bonus block demonstrates it on purpose, dropping the index a forced plan depends on.
+`NO_INDEX` is the one worth remembering. [04_Regression_Testing](../04_Regression_Testing/) demonstrates this path in a controlled practice flow.
 
 ## Gotcha
 
-AdventureWorks2022 ships with a nonclustered index on `Sales.SalesOrderDetail(ProductID)` (`IX_SalesOrderDetail_ProductID`). [08_Simulate_And_Force_A_Regression.sql](08_Simulate_And_Force_A_Regression.sql) disables it before dropping this repo's own index. Skip that and the optimizer keeps using the built-in index, and the regression won't show up.
+AdventureWorks2022 ships with a nonclustered index on `Sales.SalesOrderDetail(ProductID)` (`IX_SalesOrderDetail_ProductID`). The regression lab in [04_Regression_Testing](../04_Regression_Testing/) disables it before dropping this repo's own index. Skip that and the optimizer keeps using the built-in index, and the regression won't show up.
 
 ## Management Procedures
 
@@ -80,6 +80,7 @@ AdventureWorks2022 ships with a nonclustered index on `Sales.SalesOrderDetail(Pr
 
 | Folder | Why |
 |---|---|
+| [04_Regression_Testing](../04_Regression_Testing/) | Three-phase regression + forcing practice workflow |
 | [05_Maintenance](../05_Maintenance/) | Maintenance actions and their impacts, run when you're done or when things drift |
 | [06_Monitoring](../06_Monitoring/) | Where the alerts come from |
 | [08_Best_Practices](../08_Best_Practices/) | Proactive guidance, so you need this folder less often |

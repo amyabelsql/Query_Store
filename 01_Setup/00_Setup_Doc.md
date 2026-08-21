@@ -7,16 +7,24 @@ Query Store is configured on the database level, not the instance level. Storage
 | Step | What it does                                                                  |
 |---|-------------------------------------------------------------------------------|
 | [01_Prerequisites.sql](01_Prerequisites.sql) | Instance-level checks (version, Availability Group membership, trace flags)   |
-| [02_Turn_On.sql](02_Turn_On.sql) | Turns Query Store on but you still need to configure it in the next step      |
-| [03_Configure.sql](03_Configure.sql) | Replaces those defaults with this repo's demo thresholds on the same database |
+| [02_Turn_On.sql](02_Turn_On.sql) | Turns Query Store on (`READ_WRITE`) for one database or all eligible user databases |
+| [03_Configure.sql](03_Configure.sql) | Applies this repo's Query Store thresholds for one database or all eligible user databases |
 
-`02_Turn_On.sql` and `03_Configure.sql` each start with:
+`02_Turn_On.sql` and `03_Configure.sql` now support two targeting options:
 
 ```sql
+DECLARE @ApplyToAllDatabases BIT = 0; -- 0 = one DB, 1 = all eligible user DBs
 DECLARE @DatabaseName SYSNAME = N'AdventureWorks2022';
 ```
 
-Change that value, then run the script. `01_Prerequisites.sql` is instance-wide and needs no parameter.
+Use one of these patterns:
+
+- `@ApplyToAllDatabases = 0`: set `@DatabaseName` and run against only that database
+- `@ApplyToAllDatabases = 1`: run against all eligible user databases (`ONLINE`, not read-only, not snapshots)
+
+Both scripts output one row per targeted database, including `Result` and `Error Message` columns so you can quickly spot failures.
+
+`01_Prerequisites.sql` is instance-wide and needs no parameter.
 
 ## What Each Setting Controls
 
@@ -32,7 +40,7 @@ Change that value, then run the script. `01_Prerequisites.sql` is instance-wide 
 | `MAX_PLANS_PER_QUERY` | The most distinct plans Query Store tracks per query | Any number, 0 = unlimited | 200 |
 | `WAIT_STATS_CAPTURE_MODE` | Whether wait statistics (why a query was slow, not just how slow) are captured too | `ON`, `OFF` (2017+ only) | `ON` |
 
- [Best-Practices](../10_Best_Practices/) with cover some best practices to start with.
+[Best-Practices](../10_Best_Practices/) covers baseline best practices to start with.
 
 ## Watch For This
 
